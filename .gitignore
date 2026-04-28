@@ -1,0 +1,12 @@
+# Obsidian
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+
+# Dependencies
+node_modules/
+
+# Secrets
+.env
+*.key
+*.pem

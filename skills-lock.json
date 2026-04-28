@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "cs-study": {
+      "source": "usman/cs-study",
+      "sourceType": "local",
+      "computedHash": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+    },
+    "obsidian-cli": {
+      "source": "git@github.com:kepano/obsidian-skills.git",
+      "sourceType": "git",
+      "computedHash": "f46ae626875f7e47c410c2ee93896c4526024ebe127719e8fb430261b5677edc"
+    },
+    "obsidian-markdown": {
+      "source": "git@github.com:kepano/obsidian-skills.git",
+      "sourceType": "git",
+      "computedHash": "cacc9058a35ad3fd4985b4c31121bff8202f1337c39808c1326ded6a19a7915f"
+    },
+    "obsidian-bases": {
+      "source": "git@github.com:kepano/obsidian-skills.git",
+      "sourceType": "git",
+      "computedHash": "ed0a53502693e56c67575a9958daca9a3a1ac7ba483367f400b4cad9488bfb3c"
+    },
+    "tavily-research": {
+      "source": "tavily-ai/skills",
+      "sourceType": "github",
+      "computedHash": "58a32caadb010598a2faad7544dedade288c1e81e72aa550b13d83b003264062"
+    },
+    "tavily-search": {
+      "source": "tavily-ai/skills",
+      "sourceType": "github",
+      "computedHash": "bda6e90a41addbe0f8750a38aebdf59c5bdc8514d23aaf2015ffe45de6958b74"
+    }
+  }
+}
