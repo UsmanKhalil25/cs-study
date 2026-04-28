@@ -265,3 +265,6 @@ while (true) {
 - [MDN — EventSource API](https://developer.mozilla.org/en-US/docs/Web/API/EventSource)
 - [High Performance Browser Networking — SSE chapter](https://hpbn.co)
 - [EventSource Polyfill](https://github.com/Yaffle/EventSource)
+
+
+- [[Microservices Architecture]] — server-to-client streaming in distributed architectures

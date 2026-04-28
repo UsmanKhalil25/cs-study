@@ -1216,3 +1216,6 @@ app.listen(4000, () => {
 - [RFC 7519 — JSON Web Token](https://tools.ietf.org/html/rfc7519)
 - [OpenID Connect Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html)
 - [jwks-rsa Library](https://github.com/auth0/node-jwks-rsa)
+
+
+- [[Microservices Architecture]] — JWT propagation, OAuth 2.0/OIDC, and service-to-service auth patterns

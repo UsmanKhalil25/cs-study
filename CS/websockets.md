@@ -403,3 +403,6 @@ function connectWithRetry(url, maxRetries = 5) {
 - [High Performance Browser Networking — WebSockets chapter](https://hpbn.co/websocket/)
 - [ws library (Node.js)](https://github.com/websockets/ws)
 - [websockets library (Python)](https://websockets.readthedocs.io/)
+
+
+- [[Microservices Architecture]] — real-time communication patterns in distributed systems

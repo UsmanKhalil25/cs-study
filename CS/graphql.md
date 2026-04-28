@@ -769,3 +769,6 @@ flowchart TD
 - [GraphQL Code Generator](https://the-guild.dev/graphql/codegen)
 - [DataLoader — Facebook's Batching Library](https://github.com/graphql/dataloader)
 - [GraphQL Shield — Permission Layer](https://graphql-shield.vercel.app/)
+
+
+- [[Microservices Architecture]] — API gateway aggregation and BFF pattern using GraphQL federation
