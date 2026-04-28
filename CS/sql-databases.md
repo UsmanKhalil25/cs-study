@@ -526,6 +526,7 @@ Client App → Connection Pool (PgBouncer, HikariCP) → Database Server
 
 ## Related Topics
 
+- [[Database Architecture]] — managed vs self-hosted, read replicas, connection pooling, backups
 - [[Database Normalization]] — deeper dive into 1NF through BCNF with examples
 - [[Indexing Strategies]] — B-tree internals, covering indexes, index-only scans
 - [[CAP Theorem]] — tradeoffs in distributed databases

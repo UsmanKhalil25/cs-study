@@ -629,6 +629,7 @@ db.collection.find().readPref("secondary")
 
 ## Related Topics
 
+- [[Database Architecture]] — managed vs self-hosted, read replicas, backup strategies
 - [[sql-databases]] — Relational alternative with ACID guarantees
 - [[sql-vs-nosql-databases]] — Comparison and decision framework
 - [[Elasticsearch]] — Full-text search engine, often used alongside MongoDB

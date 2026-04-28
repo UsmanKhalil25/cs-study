@@ -1401,6 +1401,10 @@ graph LR
 - [[SQL Databases]] — database per service pattern
 - [[NoSQL Databases]] — polyglot persistence across services
 - [[External Authentication Providers]] — OAuth 2.0, OIDC, IAM services
+- [[Cloud Compute Options]] — deployment targets for microservices (containers, serverless)
+- [[Cloud Networking VPC]] — network isolation and security for microservice communication
+- [[Cloud Infrastructure Components]] — load balancers, service mesh, and CDN for microservices
+- [[Cloud Cost Optimization]] — cost considerations when scaling microservices
 
 ## External Links
 
