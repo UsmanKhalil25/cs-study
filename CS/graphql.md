@@ -747,6 +747,7 @@ flowchart TD
 
 ## Related Topics
 
+- [[External Authentication Providers]] — Firebase, Google, GitHub OAuth integration with GraphQL
 - [[REST APIs]] — Alternative API style; compare trade-offs
 - [[API Design]] — Schema design principles apply to both
 - [[Type Systems]] — GraphQL's type system is central to its value
