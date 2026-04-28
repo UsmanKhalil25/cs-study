@@ -503,6 +503,7 @@ jobs:
 ## Related Topics
 
 - [[Playwright Patterns]] — Page Object Model, fixtures, authentication, CI config
+- [[React Interview]] — React component testing with Testing Library
 - [[JavaScript]] — language fundamentals for testing
 - [[Web Development]] — frontend architecture and component patterns
 

@@ -757,6 +757,7 @@ flowchart TD
 - [[Microservices]] — GraphQL as API gateway/BFF pattern
 - [[N+1 Problem]] — Solved by DataLoader in GraphQL
 - [[Code Generation]] — graphql-codegen for type-safe clients
+- [[React Interview]] — React + GraphQL data fetching patterns (Apollo, urql)
 
 ## External Links
 
