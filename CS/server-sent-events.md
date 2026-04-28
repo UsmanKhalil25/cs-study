@@ -230,7 +230,7 @@ while (true) {
 > - Express: `res.flushHeaders()`
 
 > [!warning] Text-Only Data
-> SSE only supports UTF-8 text. Binary data must be Base64-encoded (~33% overhead). Use WebSockets if you need binary data.
+> SSE only supports UTF-8 text. Binary data must be Base64-encoded (~33% overhead). Use [[websockets]] if you need binary data.
 
 > [!tip] Keep-Alive Heartbeats
 > Proxies and load balancers may drop idle connections. Send comment heartbeats (`: heartbeat\n\n`) every 15-30 seconds to keep the connection alive.
@@ -246,15 +246,15 @@ while (true) {
 
 ## When NOT to Use
 
-- Need **bidirectional** communication (use [[WebSockets]])
-- Need **binary** data transfer (use WebSockets)
+- Need **bidirectional** communication (use [[websockets]])
+- Need **binary** data transfer (use [[websockets]])
 - Need to support **Internet Explorer** (no SSE support)
-- High-frequency client-to-server messaging (use WebSockets)
+- High-frequency client-to-server messaging (use [[websockets]])
 
 ## Related Topics
 
 - [[HTTP]] — SSE runs over standard HTTP connections
-- [[WebSockets]] — Alternative for bidirectional real-time communication
+- [[websockets]] — Alternative for bidirectional real-time communication
 - [[Long Polling]] — Older technique that SSE replaces
 - [[HTTP/2]] — Solves the 6-connection-per-domain limit via multiplexing
 

@@ -11,7 +11,7 @@ tags:
 prerequisites:
   - "[[HTTP]]"
   - "[[TCP]]"
-  - "[[Server-Sent Events (SSE)]]"
+  - "[[server-sent-events]]"
 date: 2026-04-29
 updated: 2026-04-29
 ---
@@ -382,7 +382,7 @@ function connectWithRetry(url, maxRetries = 5) {
 
 ## When NOT to Use
 
-- **Server-to-client only updates** (use [[Server-Sent Events (SSE)]] — simpler, auto-reconnect)
+- **Server-to-client only updates** (use [[server-sent-events]] — simpler, auto-reconnect)
 - **Infrequent updates** (use HTTP requests or long polling)
 - **When firewalls block non-HTTP traffic** (fall back to SSE or polling)
 - **Simple notification systems** (SSE is easier to implement and debug)
@@ -391,7 +391,7 @@ function connectWithRetry(url, maxRetries = 5) {
 
 - [[HTTP]] — WebSockets start with an HTTP upgrade handshake
 - [[TCP]] — WebSockets run over a persistent TCP connection
-- [[Server-Sent Events (SSE)]] — Simpler alternative for server-to-client push
+- [[server-sent-events]] — Simpler alternative for server-to-client push
 - [[HTTP/2]] — Server push and multiplexing as alternatives to WebSockets
 - [[WebRTC]] — Real-time peer-to-peer audio/video/data communication
 
