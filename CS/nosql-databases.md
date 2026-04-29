@@ -635,6 +635,7 @@ db.collection.find().readPref("secondary")
 - [[Elasticsearch]] — Full-text search engine, often used alongside MongoDB
 - [[CAP Theorem]] — Consistency vs Availability tradeoff in distributed systems
 - [[Sharding]] — Horizontal scaling technique used by MongoDB
+- [[Redis]] — in-memory data structure store used for caching, messaging, and real-time analytics
 
 ## External Links
 
