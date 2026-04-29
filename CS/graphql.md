@@ -395,13 +395,13 @@ function HeroComponent() {
 
 ### Popular TypeScript GraphQL Libraries
 
-| Library | Approach | Best For |
-|---------|----------|----------|
-| **Pothos** | Code-first | Modern TypeScript projects (recommended default) |
-| **TypeGraphQL** | Code-first (decorators) | Developers who like class-based OOP |
-| **Apollo Server + graphql-tools** | Schema-first | Teams with separate frontend/backend |
-| **GraphQL Yoga** | Server (works with both) | Edge-compatible, lightweight server |
-| **Nexus** | Code-first | Prisma ecosystem |
+| Library                           | Approach                 | Best For                                         |
+| --------------------------------- | ------------------------ | ------------------------------------------------ |
+| **Pothos**                        | Code-first               | Modern TypeScript projects (recommended default) |
+| **TypeGraphQL**                   | Code-first (decorators)  | Developers who like class-based OOP              |
+| **Apollo Server + graphql-tools** | Schema-first             | Teams with separate frontend/backend             |
+| **GraphQL Yoga**                  | Server (works with both) | Edge-compatible, lightweight server              |
+| **Nexus**                         | Code-first               | Prisma ecosystem                                 |
 
 ### DataLoader — Solving the N+1 Problem
 
