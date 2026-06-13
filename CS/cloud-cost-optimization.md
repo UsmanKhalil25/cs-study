@@ -17,7 +17,7 @@ prerequisites:
   - "[[Cloud Infrastructure Components]]"
   - "[[Database Architecture]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Cloud Cost Optimization and Architecture Patterns

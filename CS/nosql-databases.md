@@ -11,7 +11,7 @@ tags:
 prerequisites:
   - "[[sql-databases]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # NoSQL Databases (MongoDB)
@@ -19,6 +19,32 @@ updated: 2026-04-29
 ## Overview
 
 NoSQL ("Not Only SQL") databases are non-relational database systems designed to handle large volumes of unstructured and semi-structured data. They emerged to solve scalability, flexibility, and performance challenges that traditional relational databases struggle with. This note uses **MongoDB** as the primary reference.
+
+## Data Modeling Decision Flow
+
+NoSQL design starts from access patterns, not from normalization. Model the documents, keys, or partitions around the reads and writes the application must serve at scale.
+
+```mermaid
+flowchart TD
+    A[Access Pattern] --> B{Read together?}
+    B -->|Yes| C[Embed data in one document]
+    B -->|No| D[Reference by ID]
+    C --> E{Can array grow without bound?}
+    E -->|Yes| D
+    E -->|No| F[Index query fields]
+    D --> G{Needs cross-document transaction?}
+    G -->|Often| H[Consider SQL]
+    G -->|Rarely| I[Use application-level join or aggregation]
+    F --> J[Shard by high-cardinality key if needed]
+    I --> J
+```
+
+| Modeling Choice | Works Well When | Be Careful When |
+|-----------------|-----------------|-----------------|
+| Embed documents | Parent and child are read/written together | Child collections grow without limit |
+| Reference IDs | Entities have independent lifecycle | Queries need many round trips |
+| Denormalize fields | Read latency matters more than duplication | Updates must stay consistent everywhere |
+| Shard collection | Data or write volume exceeds one node | Shard key creates hot partitions |
 
 ## Types of NoSQL Databases
 

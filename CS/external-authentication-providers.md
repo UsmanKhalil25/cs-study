@@ -18,7 +18,7 @@ prerequisites:
   - "[[JSON Web Tokens]]"
   - "[[Cryptography Basics]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # External Authentication Providers
@@ -26,6 +26,32 @@ updated: 2026-04-29
 ## Overview
 
 External authentication allows your application to delegate identity verification to trusted third-party providers (Firebase, Google, GitHub) rather than managing passwords yourself. The provider handles login UI, credential storage, and MFA, then issues cryptographically signed tokens that your backend verifies to establish user identity.
+
+## Trust Boundary Model
+
+External auth is not “trust whatever the client sends.” The provider authenticates the user; your backend still owns token verification, local authorization, user linking, session policy, and revocation behavior.
+
+```mermaid
+flowchart TD
+    A[Browser / Mobile App] -->|OAuth redirect or SDK login| B[Identity Provider]
+    B -->|ID token / auth code| A
+    A -->|Token to verify| C[Backend Auth Boundary]
+    C --> D[JWKS / Token Introspection]
+    D --> B
+    C --> E[Local User Record]
+    C --> F[Authorization Rules]
+    C --> G[Session / App Token]
+    G --> A
+    A --> H[Application API]
+    H --> C
+```
+
+| Token Type | What It Proves | Backend Handling |
+|------------|----------------|------------------|
+| ID token | User identity from OIDC-style providers | Verify signature, issuer, audience, expiry, nonce when relevant |
+| Access token | Permission to call a resource API | Treat as provider-specific; often opaque outside that provider |
+| Authorization code | Short-lived credential to exchange server-side | Exchange with client secret/PKCE; never treat as identity alone |
+| App session | Your application's login state | Issue after provider verification and local user sync |
 
 ## How External Auth Providers Work
 

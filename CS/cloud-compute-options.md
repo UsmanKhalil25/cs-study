@@ -14,7 +14,7 @@ tags:
 prerequisites:
   - "[[Microservices Architecture]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Cloud Compute Options

@@ -12,7 +12,7 @@ prerequisites:
   - "[[JavaScript]]"
   - "[[DOM]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # React (Interview Prep)
@@ -20,6 +20,33 @@ updated: 2026-04-29
 ## Overview
 
 React is a declarative UI library that renders components to a Virtual DOM and reconciles changes with minimal real DOM updates. Interview focus: hooks, re-rendering, state management, and performance.
+
+## Mental Model
+
+React code is easiest to reason about when you separate **render inputs** from **side effects**. Props, state, and context produce UI; effects synchronize with systems outside React such as network, DOM APIs, subscriptions, and timers.
+
+```mermaid
+flowchart TD
+    A[Props] --> D[Render Function]
+    B[State] --> D
+    C[Context] --> D
+    D --> E[React Element Tree]
+    E --> F[Reconciliation / Fiber]
+    F --> G[Commit DOM Updates]
+    G --> H[Layout Effects]
+    G --> I[Passive Effects]
+    H --> J[External Systems]
+    I --> J
+    J -->|events / async results| B
+```
+
+| Interview Question | Strong Practical Answer |
+|--------------------|--------------------------|
+| Where should data live? | As low as possible, lifted only when siblings need to coordinate. |
+| When do you use context? | Low-frequency global data like theme, auth user, locale; avoid hot changing values. |
+| When do you use effects? | Only to synchronize with non-React systems; derive render data during render instead. |
+| When do you memoize? | After profiling, or when referential stability is required for memoized children/dependencies. |
+| How do you prevent stale async work? | Use `AbortController`, cleanup functions, request IDs, or library-managed query caches. |
 
 ## How It Works
 

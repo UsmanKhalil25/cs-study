@@ -12,7 +12,7 @@ prerequisites:
   - "[[HTTP]]"
   - "[[JavaScript]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Server-Sent Events (SSE)
@@ -67,6 +67,29 @@ X-Accel-Buffering: no   # For nginx to disable proxy buffering
 - On reconnect, browser sends `Last-Event-ID` header with the last received `id:` value
 - Default reconnection delay is a few seconds; can be overridden with `retry:` field
 - HTTP `204 No Content` tells the client to **stop** reconnecting
+
+```mermaid
+stateDiagram-v2
+    [*] --> Connecting
+    Connecting --> Open: 200 text/event-stream
+    Open --> Open: receive event + update lastEventId
+    Open --> Reconnecting: network close / proxy timeout
+    Reconnecting --> Connecting: wait retry delay
+    Connecting --> Closed: server returns 204
+    Closed --> [*]
+```
+
+### Delivery Semantics
+
+SSE gives you an ordered stream over one HTTP response, but it does not automatically make delivery durable. If missed events matter, the server must store recent events by ID and replay from `Last-Event-ID` after reconnect.
+
+| Requirement | SSE Design Choice |
+|-------------|-------------------|
+| Best-effort live updates | Send events directly from memory |
+| Resume after disconnect | Persist events with monotonically increasing IDs |
+| Multiple tabs per user | Share one connection via a SharedWorker or app-level broker |
+| Backpressure | Batch, coalesce, or drop low-priority events before writing |
+| Authenticated streams | Use cookies or short-lived tokens; validate before opening the stream |
 
 ## Code
 
@@ -234,6 +257,14 @@ while (true) {
 
 > [!tip] Keep-Alive Heartbeats
 > Proxies and load balancers may drop idle connections. Send comment heartbeats (`: heartbeat\n\n`) every 15-30 seconds to keep the connection alive.
+
+## Production Checklist
+
+- Disable reverse-proxy buffering and compression that waits for large chunks.
+- Send heartbeats below the shortest known idle timeout in the path.
+- Include `id:` for events that need replay; store enough history to cover expected reconnect windows.
+- Close unauthorized or expired streams explicitly rather than silently streaming partial data.
+- Monitor active connections, write errors, reconnect rate, and per-client lag.
 
 ## When to Use
 

@@ -12,7 +12,7 @@ prerequisites:
   - "[[Hash Tables]]"
   - "[[Event Loop]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Redis
@@ -43,6 +43,31 @@ graph LR
     D -->|Append| G[AOF Log]
     D -->|Command Stream| H[Replica]
 ```
+
+### Production Data Flow
+
+Redis is usually not the system of record. Treat it as a low-latency coordination layer in front of durable storage unless you have explicitly designed persistence, backups, failover, and recovery objectives around Redis itself.
+
+```mermaid
+flowchart TD
+    A[Application Request] --> B{Read Path}
+    B -->|Cache hit| C[Return Redis Value]
+    B -->|Cache miss| D[Query Primary Database]
+    D --> E[Serialize + Set TTL]
+    E --> C
+    A --> F{Write Path}
+    F --> G[Commit to Primary DB]
+    G --> H[Invalidate or Update Cache]
+    H --> I[Publish Event / Stream]
+```
+
+| Pattern | Use When | Main Risk |
+|---------|----------|-----------|
+| Cache-aside | App can tolerate misses and repopulate data | Stale data after writes |
+| Write-through | Reads must see recently written cached values | Higher write latency |
+| Pub/Sub | Fire-and-forget fanout to online subscribers | Messages vanish when subscribers are offline |
+| Streams | Durable event log, consumer groups, replay | More operational state to trim and monitor |
+| Distributed lock | Short critical sections with expiry | Clock, timeout, and ownership mistakes |
 
 ## Code
 
@@ -155,6 +180,14 @@ with r.pipeline() as pipe:
 
 > [!info] Persistence Choice
 > Use RDB for disaster recovery (compact, fast restarts) and AOF for durability (minimal data loss). Running both provides the best of both worlds.
+
+## Operational Checklist
+
+- Track `used_memory`, eviction count, connected clients, replication lag, rejected connections, slowlog entries, and command latency percentiles.
+- Pick TTLs based on business freshness, not arbitrary round numbers; add jitter to avoid synchronized expirations.
+- Separate cache, queue, stream, and lock workloads when one noisy pattern can affect the others.
+- Test failover under load. Async replication means a promoted replica can miss acknowledged writes unless the app waits for replicas explicitly.
+- Keep key names predictable (`domain:id:field`) and document high-cardinality or large-value keys.
 
 ## When to Use
 

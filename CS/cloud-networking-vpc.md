@@ -13,7 +13,7 @@ tags:
 prerequisites:
   - "[[TCP/IP Fundamentals]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Cloud Networking VPC

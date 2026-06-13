@@ -14,7 +14,7 @@ prerequisites:
   - "[[JavaScript]]"
   - "[[Web Development]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Frontend Testing
@@ -22,6 +22,23 @@ updated: 2026-04-29
 ## Overview
 
 Frontend testing ensures UI components and user flows work correctly across three levels: unit (isolated components), integration (component interactions with mocked APIs), and end-to-end (full browser with real network). Each level trades cost for confidence — the testing pyramid guides how many of each type to write.
+
+## Test Strategy Map
+
+```mermaid
+flowchart TD
+    A[User-Facing Risk] --> B{Can TypeScript or lint catch it?}
+    B -->|Yes| C[Static Check]
+    B -->|No| D{Is it pure logic?}
+    D -->|Yes| E[Unit Test]
+    D -->|No| F{Does it involve UI + data flow?}
+    F -->|Yes| G[Integration Test with Testing Library + MSW]
+    F -->|No| H{Is it a critical cross-page journey?}
+    H -->|Yes| I[E2E Test with Playwright]
+    H -->|No| J[Manual exploratory / no automated test]
+```
+
+Use the cheapest test that gives useful confidence. A form validation helper belongs in a unit test; a component that loads and mutates API data belongs in an integration test; checkout, signup, login, and billing flows deserve a small number of E2E tests.
 
 ## The Testing Pyramid
 
@@ -43,6 +60,16 @@ graph BT
 
 > [!tip] The Testing Trophy (Kent C. Dodds)
 > Modern frontend testing flips the pyramid: most tests should be integration tests (Testing Library + MSW), fewer unit tests for complex logic, and a small set of E2E tests for critical user paths. Static type checking (TypeScript) replaces many unit tests.
+
+### What Good Frontend Tests Assert
+
+| Assert | Why |
+|--------|-----|
+| Accessible roles, labels, and visible text | Matches how users and assistive tech find UI |
+| State transitions after real interactions | Catches wiring bugs without inspecting internals |
+| Network success, loading, empty, and error states | Covers the states users actually experience |
+| URL/navigation outcomes | Verifies routing and cross-page behavior |
+| Analytics or side effects at boundaries | Keeps business-critical integration points visible |
 
 ## Unit Testing
 

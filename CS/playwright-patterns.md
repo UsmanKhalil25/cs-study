@@ -13,7 +13,7 @@ prerequisites:
   - "[[Frontend Testing]]"
   - "[[Web Development]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Playwright Patterns
@@ -21,6 +21,46 @@ updated: 2026-04-29
 ## Overview
 
 Playwright is a modern E2E testing framework with built-in auto-waiting, cross-browser support, and a powerful fixture system. This note covers scalable patterns: Page Object Model, fixtures, authentication, API testing, visual regression, and CI configuration.
+
+```mermaid
+flowchart TD
+    A[Test Case] --> B[User-Facing Locators]
+    B --> C[Page Object or Screen Helper]
+    C --> D[Browser Context]
+    D --> E[App Under Test]
+    E --> F[Network/API Layer]
+    F --> G[Test Data and Fixtures]
+    G --> C
+    D --> H[Trace, Video, Screenshot]
+    H --> I[CI Debug Artifacts]
+```
+
+The goal is to test user-visible behavior while keeping setup, authentication, and test data isolated. Good Playwright suites use browser contexts as isolation boundaries, fixtures as dependency injection, locators as accessibility contracts, and traces as the first debugging artifact in CI.
+
+## Pattern Selection Guide
+
+| Problem | Prefer | Avoid |
+|---------|--------|-------|
+| Repeated workflows | POM method or fixture | Copy-pasted click chains |
+| Shared login state | Setup project + `storageState` | Logging in through the UI in every test |
+| Backend setup | API fixture or direct seed helper | Long UI flows just to create preconditions |
+| Flaky timing | Locator assertions and auto-waiting | `waitForTimeout()` |
+| Complex roles | Separate storage state per role | One global account shared by all tests |
+| CI failures | Trace on first retry | Re-running locally without artifacts |
+
+```mermaid
+flowchart LR
+    A[Need setup?] --> B{Is it user behavior under test?}
+    B -->|Yes| C[Drive UI with locators]
+    B -->|No| D[Use API or DB fixture]
+    C --> E{Repeated in many tests?}
+    E -->|Yes| F[POM or custom fixture]
+    E -->|No| G[Inline in test]
+    D --> H[Worker-scoped if expensive]
+    F --> I[Assert visible outcome]
+    G --> I
+    H --> I
+```
 
 ## Page Object Model (POM)
 

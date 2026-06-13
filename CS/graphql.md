@@ -12,7 +12,7 @@ prerequisites:
   - "[[API Design]]"
   - "[[Type Systems]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # GraphQL
@@ -36,20 +36,49 @@ The request lifecycle flows through parsing, validation, resolver execution, and
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Server
+    participant HTTP as GraphQL Endpoint
     participant Schema
-    participant Resolver
-    participant Database
+    participant Auth as Context/Auth
+    participant Loader as DataLoader
+    participant DB as Data Sources
 
-    Client->>Server: POST /graphql { query, variables }
-    Server->>Schema: Parse & Validate Query
-    Schema-->>Server: Valid AST or Error
-    Server->>Resolver: Execute Resolvers (field by field)
-    Resolver->>Database: Batched queries (DataLoader)
-    Database-->>Resolver: Results
-    Resolver-->>Server: Resolved data tree
-    Server-->>Client: { data: {...}, errors: [...] }
+    Client->>HTTP: POST /graphql { query, variables }
+    HTTP->>Schema: Parse, validate, apply depth/cost limits
+    Schema-->>HTTP: Executable operation or validation errors
+    HTTP->>Auth: Build per-request context
+    Auth-->>HTTP: user, permissions, loaders
+    HTTP->>Loader: Resolve fields and batch entity lookups
+    Loader->>DB: Batched queries / service calls
+    DB-->>Loader: Results
+    Loader-->>HTTP: Data tree + field errors
+    HTTP-->>Client: { data, errors }
 ```
+
+### API Design Pressure Points
+
+GraphQL moves complexity from many endpoints into one schema. That improves client flexibility, but the server must now protect execution cost, batching, authorization, caching, and schema evolution.
+
+```mermaid
+flowchart TD
+    A[Schema Field] --> B{Who can read it?}
+    B --> C[Auth rule in resolver/context]
+    A --> D{How expensive is it?}
+    D --> E[Depth, complexity, pagination limits]
+    A --> F{Can it fan out?}
+    F --> G[DataLoader / batching]
+    A --> H{Can clients cache it?}
+    H --> I[Stable IDs + normalized client cache]
+    A --> J{Will it change?}
+    J --> K[Deprecate, then remove after clients migrate]
+```
+
+| Concern | Practical Rule |
+|---------|----------------|
+| Authorization | Check at field or object boundary, not only at operation entry. |
+| N+1 queries | Create DataLoaders per request so caches do not leak between users. |
+| Pagination | Require limits and prefer cursor pagination for mutable lists. |
+| Errors | Return partial data only when the client can safely render it. |
+| Versioning | Add fields, deprecate old fields, avoid breaking schema changes. |
 
 ### Resolver Execution
 

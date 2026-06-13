@@ -10,11 +10,11 @@ tags:
   - web-development
   - javascript
 prerequisites:
-  - "[[react]]"
-  - "[[javascript]]"
+  - "[[React Interview]]"
+  - "[[JavaScript]]"
   - "[[web-basics]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Next.js Interview Questions
@@ -61,6 +61,27 @@ graph LR
 ```
 
 File-based routing maps directory structure directly to URL paths. Route groups like `(marketing)` organize files without affecting URLs.
+
+### Rendering Decision Flow
+
+```mermaid
+flowchart TD
+    A[Route or Component] --> B{Needs browser APIs or local state?}
+    B -->|Yes| C[Client Component]
+    B -->|No| D{Personalized per request?}
+    D -->|Yes| E[Dynamic Server Rendering]
+    D -->|No| F{Data changes after deploy?}
+    F -->|Rarely| G[Static Rendering]
+    F -->|Periodically| H[ISR / Revalidation]
+    F -->|Frequently| I[Dynamic fetch or Server Action]
+    C --> J[Hydrate in Browser]
+    E --> K[Stream HTML/RSC Payload]
+    G --> K
+    H --> K
+    I --> K
+```
+
+The practical default in App Router is: keep components server-side until they need interactivity, isolate the smallest possible client component behind `'use client'`, and make caching/revalidation explicit.
 
 ## Comparison Tables
 

@@ -11,7 +11,7 @@ tags:
 prerequisites:
   - "[[JavaScript]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Testing with Vitest and Jest
@@ -19,6 +19,21 @@ updated: 2026-04-29
 ## Overview
 
 Vitest and Jest are JavaScript testing frameworks for writing unit, integration, and component tests. Jest (by Meta, 2014) is the mature industry standard. Vitest (by the Vite team, 2021) is a faster, Vite-native alternative with near-identical APIs. Both support mocking, snapshots, coverage, and parallel test execution.
+
+## Suite Design Model
+
+```mermaid
+flowchart TD
+    A[Test File] --> B[Arrange: fixtures, mocks, data]
+    B --> C[Act: call function, render component, hit API]
+    C --> D[Assert: observable result]
+    D --> E[Cleanup: restore mocks, close resources]
+    E --> F{Failure?}
+    F -->|Yes| G[Inspect diff, logs, coverage, mock calls]
+    F -->|No| H[Fast feedback in watch/CI]
+```
+
+The best tests are deterministic, isolated, and focused on externally visible behavior. Use mocks at process boundaries such as HTTP, filesystem, queues, clocks, and third-party SDKs; avoid mocking the code you are trying to gain confidence in.
 
 ## How It Works
 
@@ -53,6 +68,23 @@ graph TD
 
 > [!tip] When to Use Each
 > **Use Vitest** for new projects, Vite-based apps, or when you want native TypeScript and fast watch mode. **Use Jest** for legacy codebases, Next.js projects, or when you depend on Jest-specific plugins.
+
+### Test Boundary Decision Flow
+
+```mermaid
+flowchart LR
+    A[Behavior to verify] --> B{Pure function?}
+    B -->|Yes| C[Unit test]
+    B -->|No| D{Needs DOM?}
+    D -->|Yes| E[Component test in jsdom/happy-dom]
+    D -->|No| F{Calls external service?}
+    F -->|Yes| G[Mock boundary with MSW/fake SDK]
+    F -->|No| H[Integration test with real modules]
+    G --> I[Assert observable behavior]
+    H --> I
+    C --> I
+    E --> I
+```
 
 ## Code
 

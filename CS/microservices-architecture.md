@@ -14,7 +14,7 @@ prerequisites:
   - "[[REST APIs]]"
   - "[[HTTP Protocol]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Microservices Architecture
@@ -22,6 +22,33 @@ updated: 2026-04-29
 ## Overview
 
 Microservices architecture is an architectural style that structures an application as a collection of small, loosely coupled, independently deployable services, each owning a specific business capability. Unlike monolithic architectures where all components are tightly coupled in a single codebase, microservices communicate over well-defined APIs and can be developed, deployed, and scaled independently.
+
+## Decision Model
+
+Microservices solve organizational and scaling problems, not basic code organization problems. Start with a modular monolith until independent deployment, team ownership, or scaling pressure is strong enough to pay the distributed-systems cost.
+
+```mermaid
+flowchart TD
+    A[New Product or Feature] --> B{Multiple teams need independent delivery?}
+    B -->|No| C[Modular Monolith]
+    B -->|Yes| D{Clear bounded contexts and data ownership?}
+    D -->|No| C
+    D -->|Yes| E{Can you operate distributed systems?}
+    E -->|No| F[Modular Monolith + prepare boundaries]
+    E -->|Yes| G[Microservices]
+    G --> H[API Gateway]
+    G --> I[Service-Owned Data]
+    G --> J[Observability + CI/CD]
+    G --> K[Async Messaging Where Needed]
+```
+
+| Use Microservices When | Stay Modular Monolith When |
+|------------------------|----------------------------|
+| Teams deploy independently | One team owns most code |
+| Domains have separate data lifecycles | Boundaries are still unclear |
+| Hotspots need independent scaling | Scale bottleneck is not proven |
+| Failures must be isolated by capability | Operational maturity is low |
+| Contracts can be versioned and tested | Shared transactions dominate |
 
 ## How It Works
 

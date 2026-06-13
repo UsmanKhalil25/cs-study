@@ -13,7 +13,7 @@ prerequisites:
   - "[[TCP]]"
   - "[[server-sent-events]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # WebSockets
@@ -74,6 +74,24 @@ Sec-WebSocket-Accept = base64(SHA-1(Sec-WebSocket-Key + "258EAFA5-E914-47DA-95CA
 
 The magic GUID `258EAFA5-E914-47DA-95CA-C5AB0DC85B11` is defined in RFC 6455 and prevents non-WebSocket servers from accidentally accepting the upgrade.
 
+### Connection Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Connecting
+    Connecting --> Open: HTTP 101 upgrade accepted
+    Connecting --> Closed: handshake rejected
+    Open --> Degraded: missed pong / high bufferedAmount
+    Degraded --> Open: heartbeat recovered
+    Open --> Closing: close frame sent
+    Degraded --> Closing: timeout
+    Closing --> Closed: close acknowledged or TCP closed
+    Closed --> Reconnect: client policy allows retry
+    Reconnect --> Connecting: exponential backoff + jitter
+```
+
+In production, the WebSocket protocol is only the transport. The application still needs a message schema, authentication, authorization, heartbeat policy, reconnection policy, idempotency rules, and backpressure handling.
+
 ### WebSocket Framing
 
 After the handshake, data is exchanged in **frames**. Each frame has a specific format:
@@ -113,6 +131,25 @@ After the handshake, data is exchanged in **frames**. Each frame has a specific 
 
 > [!info] Why Client Frames Are Masked
 > Client-to-server frames are masked to prevent **cache poisoning attacks** in HTTP proxies. Masking is NOT for security — it's a protocol-level defense against intermediaries that might misinterpret WebSocket data as HTTP requests.
+
+### Production Architecture
+
+```mermaid
+flowchart LR
+    A[Browser or Mobile Client] --> B[Load Balancer]
+    B --> C[WebSocket Gateway]
+    C --> D[Connection Registry]
+    C --> E[Auth and Rate Limits]
+    C --> F[Message Router]
+    F --> G[Pub/Sub or Stream Bus]
+    G --> H[Application Services]
+    H --> G
+    G --> F
+    F --> C
+    C --> A
+```
+
+Sticky sessions are useful but not enough by themselves. Once you run more than one gateway instance, messages produced by one service must reach the gateway that owns the target connection. That usually requires a shared pub/sub layer, stream bus, or connection registry.
 
 ## Code
 
@@ -369,6 +406,15 @@ function connectWithRetry(url, maxRetries = 5) {
   return connect();
 }
 ```
+
+## Production Checklist
+
+- Use `wss://` in production and validate `Origin` during the upgrade to reduce cross-site WebSocket hijacking risk.
+- Authenticate during the handshake or immediately after connect; avoid long-lived bearer tokens in query strings.
+- Define envelope fields such as `type`, `id`, `version`, and `correlationId` so messages can evolve safely.
+- Track `bufferedAmount` or server-side send queues; disconnect or degrade slow consumers before memory grows without bound.
+- Send ping/pong heartbeats and close stale connections quickly enough for load balancers and clients to recover.
+- Make reconnects idempotent: clients should resubscribe and request missed state using last-seen sequence IDs.
 
 ## When to Use
 

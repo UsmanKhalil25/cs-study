@@ -15,7 +15,7 @@ prerequisites:
   - "[[SQL vs NoSQL Databases]]"
   - "[[Cloud Networking VPC]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # Database Architecture

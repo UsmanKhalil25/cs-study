@@ -15,7 +15,7 @@ prerequisites:
   - "[[Data Structures]]"
   - "[[Big O Notation]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # SQL Databases
@@ -23,6 +23,32 @@ updated: 2026-04-29
 ## Overview
 
 SQL (Structured Query Language) databases, also called relational databases (RDBMS), store data in structured tables with rows and columns, enforcing a predefined schema. They power most of the world's critical systems — from banking and e-commerce to healthcare and logistics — because they guarantee data integrity through ACID properties and provide a powerful, declarative query language.
+
+## Decision Model
+
+Choose SQL when correctness, relationships, constraints, ad hoc querying, and transactional updates matter more than unrestricted schema flexibility.
+
+```mermaid
+flowchart TD
+    A[Application Data] --> B{Needs relational integrity?}
+    B -->|Yes| C[SQL Database]
+    B -->|No| D{Mostly key lookup or document access?}
+    D -->|Yes| E[NoSQL / Cache]
+    D -->|No| C
+    C --> F[Schema + Constraints]
+    C --> G[Indexes + Query Planner]
+    C --> H[Transactions + WAL]
+    H --> I[Replication / Backups]
+    G --> J[Performance Tuning]
+```
+
+| Need | SQL Feature |
+|------|-------------|
+| Prevent invalid data | `NOT NULL`, `CHECK`, foreign keys, unique constraints |
+| Update multiple rows safely | Transactions and isolation levels |
+| Ask new business questions | Declarative SQL, joins, aggregations, window functions |
+| Audit and recovery | Write-ahead log, backups, point-in-time restore |
+| Predictable schema evolution | Migrations and typed columns |
 
 ## How It Works
 

@@ -16,7 +16,7 @@ prerequisites:
   - "[[Relational Databases]]"
   - "[[Database Indexing]]"
 date: 2026-04-29
-updated: 2026-04-29
+updated: 2026-06-14
 ---
 
 # SQL vs NoSQL Databases
@@ -24,6 +24,35 @@ updated: 2026-04-29
 ## Overview
 
 SQL (relational) and NoSQL (non-relational) databases represent two fundamentally different approaches to data storage, retrieval, and management. SQL databases use structured tables with rigid schemas and ACID transactions, while NoSQL databases offer flexible data models (documents, key-value, wide-column, graph) with horizontal scalability. Understanding their tradeoffs is essential for system design decisions.
+
+## Selection Flow
+
+Start with the access pattern and consistency requirement. PostgreSQL or another relational database is often the safest default; add NoSQL systems when the data model or scale requirement clearly benefits from a specialized store.
+
+```mermaid
+flowchart TD
+    A[New Persistence Need] --> B{Need multi-row transactions or relational constraints?}
+    B -->|Yes| C[SQL]
+    B -->|No| D{Primary access is by document/key?}
+    D -->|Yes| E[Document or Key-Value Store]
+    D -->|No| F{Primary need is graph traversal, search, or time-series?}
+    F -->|Graph| G[Graph Database]
+    F -->|Search| H[Search Engine]
+    F -->|Time-series| I[Time-Series / Wide-Column]
+    F -->|General queries| C
+    C --> J{Scale bottleneck proven?}
+    J -->|No| K[Add indexes, replicas, cache]
+    J -->|Yes| L[Partition, shard, or add specialized store]
+    E --> M[Design around access patterns]
+```
+
+| Default Question | Practical Bias |
+|------------------|----------------|
+| Is the schema mostly known? | Prefer SQL. |
+| Are relationships important? | Prefer SQL. |
+| Is each record a self-contained aggregate? | Document databases can fit well. |
+| Is latency dominated by repeated key lookups? | Add Redis or another key-value cache. |
+| Is text relevance the core feature? | Use Elasticsearch/OpenSearch alongside the source of truth. |
 
 ## Core Differences
 
