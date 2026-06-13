@@ -9,6 +9,7 @@ tags:
   - containers
   - virtual-machines
   - aws
+  - gcp
   - system-design
   - cost-optimization
 prerequisites:
@@ -533,6 +534,7 @@ AWS Fargate is serverless for containers — you define container specs and pay 
 ## Related Topics
 
 - [[Microservices Architecture]] — containers are the standard deployment unit for microservices
+- [[AWS Basics]] — EC2, ECS, Fargate, RDS, and common AWS deployment shape
 - [[SQL vs NoSQL Databases]] — database compute choices interact with application compute
 - [[Cloud Networking VPC]] — all compute options run within VPCs
 - [[Cloud Infrastructure Components]] — load balancers, CDN, and DNS work with all compute types
@@ -546,4 +548,6 @@ AWS Fargate is serverless for containers — you define container specs and pay 
 - [Fargate vs Lambda](https://aws.amazon.com/blogs/containers/choosing-between-aws-lambda-and-aws-fargate/)
 - [The Serverless Handbook](https://serverlesshandbook.dev/)
 - [Google Cloud Run](https://cloud.google.com/run)
+- [Cloud Run Overview](https://cloud.google.com/run/docs/overview/what-is-cloud-run)
+- [Cloud Run Jobs](https://cloud.google.com/run/docs/create-jobs)
 - [Azure Container Instances](https://azure.microsoft.com/en-us/products/container-instances/)
