@@ -314,7 +314,7 @@ Client Components (marked with `'use client'`) render on both server and client,
 - `app/about/page.tsx` → `/about`
 - `app/blog/[slug]/page.tsx` → `/blog/:slug` (dynamic)
 - `app/shop/[...slug]/page.tsx` → `/shop/*` (catch-all)
-- `app/docs/[[...slug]]/page.tsx` → `/docs` and `/docs/*` (optional catch-all)
+- `app/docs/[...slug]/page.tsx` means `/docs/*`; the optional catch-all form uses double brackets around `...slug` and also matches `/docs`.
 - `app/(marketing)/about/page.tsx` → `/about` (route group, doesn't affect URL)
 
 ### Q7: What is `generateStaticParams` and when do you use it?
@@ -594,8 +594,8 @@ export default function Page() {
 
 ## Related Topics
 
-- [[react]] — Next.js is built on React; Server Components extend React's component model
-- [[javascript]] — Foundation for understanding Next.js runtime and Edge API
+- [[React Interview]] — Next.js is built on React; Server Components extend React's component model
+- [[JavaScript]] — Foundation for understanding Next.js runtime and Edge API
 - [[web-basics]] — HTTP, caching, and rendering fundamentals that Next.js builds upon
 - [[graphql]] — Alternative data fetching pattern usable with Next.js API routes
 - [[microservices-architecture]] — Next.js can serve as a BFF (Backend-for-Frontend) layer

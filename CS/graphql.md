@@ -783,7 +783,7 @@ flowchart TD
 - [[WebSockets]] — Used for GraphQL subscriptions
 - [[Caching Strategies]] — GraphQL requires different caching than REST
 - [[Authentication Patterns]] — JWT + context pattern for GraphQL auth
-- [[Microservices]] — GraphQL as API gateway/BFF pattern
+- [[Microservices Architecture]] — GraphQL as API gateway/BFF pattern
 - [[N+1 Problem]] — Solved by DataLoader in GraphQL
 - [[Code Generation]] — graphql-codegen for type-safe clients
 - [[React Interview]] — React + GraphQL data fetching patterns (Apollo, urql)
