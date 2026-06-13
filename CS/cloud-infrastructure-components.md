@@ -474,6 +474,65 @@ async function getCachedCredentials() {
 > [!warning] Secret Rotation Gotcha
 > When rotating database passwords, there's a window where the old password is invalid but the application hasn't picked up the new one. Use dual-password support (PostgreSQL 14+) or implement graceful reconnection with secret refresh.
 
+## GCP Supporting Services
+
+### Pub/Sub
+
+Pub/Sub is Google Cloud's managed messaging service for asynchronous event delivery. Publishers write messages to topics; subscriptions deliver those messages to consumers using pull or push delivery. It is commonly paired with Cloud Run services for event-driven HTTP workers and with Cloud Run jobs for batch follow-up work.
+
+```mermaid
+flowchart LR
+    A[Producer Service] --> B[Pub/Sub Topic]
+    B --> C[Push Subscription]
+    B --> D[Pull Subscription]
+    C --> E[Cloud Run Service]
+    D --> F[Worker / Batch Consumer]
+    E --> G[Cloud SQL / Datastore]
+    F --> G
+    B --> H[Dead Letter Topic]
+```
+
+| Concern | Practical Guidance |
+|---------|--------------------|
+| Duplicate delivery | Make handlers idempotent with message IDs or business keys |
+| Failed processing | Configure retries and dead-letter topics |
+| Slow consumers | Monitor subscription backlog and oldest unacked message age |
+| Ordering | Use ordering keys only where strict per-key order is required |
+| Push to Cloud Run | Authenticate requests and return non-2xx only for retryable failures |
+
+### Datastore / Firestore in Datastore Mode
+
+Datastore is a managed NoSQL document database now surfaced through Firestore in Datastore mode. It is useful for hierarchical entities, flexible schemas, automatic scaling, and application data that does not need SQL joins.
+
+```mermaid
+flowchart TD
+    A[Application] --> B{Access Pattern}
+    B -->|Entity by key| C[Datastore Key Lookup]
+    B -->|Filtered list| D[Index-backed Query]
+    C --> E[Entity Group]
+    D --> F[Composite Index]
+    E --> G[Strong ancestor queries]
+    F --> H[Eventually consistent broad queries]
+```
+
+| Use Datastore When | Prefer Cloud SQL When |
+|--------------------|-----------------------|
+| Data is document-like or sparse | You need joins and relational constraints |
+| Scale and low ops matter | You need complex ad hoc SQL queries |
+| Entity groups model the consistency boundary | Multi-row transactions are common |
+| Query patterns are known and indexable | Reporting queries change frequently |
+
+### Secret Manager
+
+Secret Manager stores API keys, database passwords, certificates, and other sensitive values with IAM access control and versioning. In GCP deployments, prefer service-account access to Secret Manager over baking secrets into Docker images or committing `.env` files.
+
+| Pattern | Use |
+|---------|-----|
+| Runtime fetch | App reads the secret at startup and caches it with refresh behavior |
+| Environment injection | Platform injects values for simple apps; redeploy/restart may be needed for updates |
+| Version pinning | Roll out a specific secret version safely |
+| Rotation | Add new version, update clients, then disable/destroy old version |
+
 ## How Components Work Together
 
 ### Request Flow Through Infrastructure

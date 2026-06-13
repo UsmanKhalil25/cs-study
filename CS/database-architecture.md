@@ -88,6 +88,32 @@ graph TD
 > [!tip] When to Use Managed
 > Use managed for: most production workloads, teams without dedicated DBAs, startups prioritizing speed, and when the operational savings outweigh the premium cost.
 
+### GCP Cloud SQL
+
+Cloud SQL is Google Cloud's managed relational database service for MySQL, PostgreSQL, and SQL Server. It maps closely to RDS conceptually: Google manages backups, patching, maintenance windows, high availability options, monitoring integration, and instance scaling while your application manages schema, queries, indexes, and connection behavior.
+
+```mermaid
+flowchart LR
+    A[Cloud Run Service or Job] --> B[Cloud SQL Connector / Auth Proxy]
+    B --> C[(Cloud SQL Primary)]
+    C --> D[(Standby / HA)]
+    C --> E[(Read Replica)]
+    C --> F[Automated Backups]
+    A --> G[Secret Manager]
+    G --> B
+```
+
+| Concern | Practical Cloud SQL Choice |
+|---------|----------------------------|
+| Cloud Run connection spikes | Use connector/proxy plus connection pooling in the app or a pooler where appropriate |
+| Private database access | Prefer private IP or controlled connector path instead of public allowlists |
+| Availability | Use HA/regional configuration for production |
+| Read scaling | Add read replicas only when the app tolerates replication lag |
+| Schema changes | Run migrations from Cloud Run jobs or CI, not during every service startup |
+
+> [!warning] Serverless Connections
+> Cloud Run can scale many container instances quickly. If every instance opens a large database pool, Cloud SQL can run out of connections. Keep pools small, set maximum Cloud Run instances when needed, and monitor connection count.
+
 ## Primary/Replica Architecture
 
 ### Read Replicas

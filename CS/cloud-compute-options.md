@@ -276,6 +276,34 @@ Containers run on underlying infrastructure — you pay for the nodes (VMs) that
 - **Resource efficiency** — pack multiple workloads onto shared infrastructure
 - **Fast scaling** — containers start in seconds vs minutes for VMs
 
+### GCP Cloud Run Services vs Jobs
+
+Cloud Run is Google Cloud's managed runtime for OCI/Docker containers. You deploy a container image, configure CPU/memory/concurrency/environment settings, and Cloud Run manages revisions, autoscaling, HTTPS ingress, and execution.
+
+```mermaid
+flowchart TD
+    A[Docker Image] --> B[Artifact Registry]
+    B --> C{Cloud Run Resource}
+    C -->|HTTP or gRPC traffic| D[Cloud Run Service]
+    C -->|Run to completion| E[Cloud Run Job]
+    D --> F[Revision]
+    F --> G[Autoscaled Instances]
+    G --> H[Cloud SQL / Pub/Sub / Secret Manager]
+    E --> I[Tasks + Retries]
+    I --> H
+```
+
+| Cloud Run Resource | Best For | Operational Notes |
+|--------------------|----------|-------------------|
+| **Service** | APIs, webhooks, web apps, HTTP workers | Autoscaled by request traffic; revisions support gradual rollout and rollback |
+| **Job** | Migrations, ETL, scheduled scripts, batch processing | Runs tasks to completion; configure retries, task timeout, and parallelism |
+| **Worker pool** | Continuous non-HTTP workers | Useful when work is driven by external queues or long-running consumers |
+
+For Docker deployments, the practical flow is: build image -> push to Artifact Registry -> deploy a Cloud Run service or job -> bind a service account -> inject config/secrets -> connect to managed services. Services should be stateless; use Cloud SQL, Pub/Sub, Cloud Storage, Datastore/Firestore, or another managed store for state.
+
+> [!tip] Cloud Run Fit
+> Use Cloud Run services for request/response containers and Cloud Run jobs for one-off or scheduled batch containers. If you need always-on background work, check whether worker pools, Pub/Sub push to a service, or a scheduled job matches the workload better.
+
 ## Serverless (Lambda, Cloud Functions, Fargate)
 
 ### What They Are
