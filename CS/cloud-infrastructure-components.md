@@ -11,6 +11,7 @@ tags:
   - object-storage
   - secrets-management
   - aws
+  - gcp
   - system-design
 prerequisites:
   - "[[Cloud Networking VPC]]"
@@ -602,6 +603,7 @@ sequenceDiagram
 
 - [[Cloud Networking VPC]] — load balancers and DNS operate within VPC networking
 - [[Cloud Compute Options]] — infrastructure components route traffic to compute resources
+- [[AWS Basics]] — ECS, EC2, RDS, S3, Secrets Manager, and common AWS deployment shape
 - [[Microservices Architecture]] — load balancers and API gateways are essential for microservices
 - [[Cloud Cost Optimization]] — CDN caching, right-sizing, and storage class selection reduce costs
 
@@ -612,5 +614,8 @@ sequenceDiagram
 - [Amazon Route 53](https://aws.amazon.com/route53/)
 - [Amazon S3](https://aws.amazon.com/s3/)
 - [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/)
+- [Google Cloud Pub/Sub Overview](https://cloud.google.com/pubsub/docs/overview)
+- [Google Cloud Datastore Overview](https://cloud.google.com/datastore/docs/concepts/overview)
+- [Google Secret Manager Overview](https://cloud.google.com/secret-manager/docs/overview)
 - [AWS Systems Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-parameter-store.html)
 - [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)

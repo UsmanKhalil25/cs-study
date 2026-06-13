@@ -22,6 +22,31 @@ updated: 2026-06-14
 
 A Virtual Private Cloud (VPC) is an isolated virtual network within a cloud provider's infrastructure. It gives you complete control over your networking environment — IP address ranges, subnets, route tables, gateways, and security policies. Think of it as your own private data center network, but hosted in the cloud.
 
+## Traffic Path Mental Model
+
+When debugging cloud networking, trace the packet path in order: DNS -> load balancer -> subnet route table -> security group -> network ACL -> target service -> return route. Most outages are caused by one missing rule, wrong subnet, or asymmetric route.
+
+```mermaid
+flowchart LR
+    A[Client] --> B[DNS]
+    B --> C[Public Load Balancer]
+    C --> D[Public Subnet Route Table]
+    D --> E[Security Group Inbound]
+    E --> F[Private App Subnet]
+    F --> G[App Security Group]
+    G --> H[Database / Service]
+    F --> I[NAT Gateway or VPC Endpoint]
+    I --> J[External API / Cloud Service]
+```
+
+| Question | Check |
+|----------|-------|
+| Can traffic find the service? | DNS record, load balancer listener, target group health |
+| Can the subnet route it? | Route table path to IGW, NAT gateway, transit gateway, or VPC endpoint |
+| Is it allowed? | Security group inbound/outbound and NACL rules |
+| Is the target healthy? | Health check path, container port, app bind address |
+| Does return traffic work? | Symmetric routes and outbound security group rules |
+
 ## VPC Fundamentals
 
 ### What Is a VPC
@@ -486,6 +511,7 @@ graph LR
 ## Related Topics
 
 - [[Cloud Compute Options]] — all compute resources run within VPCs
+- [[AWS Basics]] — EC2, ECS, RDS, load balancers, and security groups in a VPC context
 - [[Cloud Infrastructure Components]] — load balancers and DNS interact with VPC networking
 - [[Microservices Architecture]] — service mesh and inter-service communication depend on VPC configuration
 - [[Cloud Cost Optimization]] — NAT Gateway and cross-AZ data transfer are significant cost drivers

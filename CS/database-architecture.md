@@ -7,6 +7,7 @@ tags:
   - databases
   - cloud-computing
   - aws
+  - gcp
   - rds
   - high-availability
   - connection-pooling
@@ -496,6 +497,7 @@ graph TD
 
 - [[SQL vs NoSQL Databases]] — database engine selection
 - [[Cloud Compute Options]] — database compute sizing and deployment
+- [[AWS Basics]] — RDS, EC2, ECS, and common AWS deployment primitives
 - [[Cloud Networking VPC]] — databases run in isolated subnets
 - [[Cloud Infrastructure Components]] — secrets management for database credentials
 - [[Cloud Cost Optimization]] — database cost optimization strategies
@@ -503,6 +505,7 @@ graph TD
 ## External Links
 
 - [AWS RDS Documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/)
+- [Google Cloud SQL Overview](https://cloud.google.com/sql/docs/introduction)
 - [Amazon Aurora Documentation](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/)
 - [RDS Proxy Documentation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.html)
 - [PgBouncer Documentation](https://www.pgbouncer.org/)

@@ -26,6 +26,35 @@ updated: 2026-06-14
 
 Cloud cost optimization is not about spending the least — it's about spending efficiently. The goal is to maximize value per dollar while maintaining performance, reliability, and security. This note covers cost optimization strategies, common cost traps, and real-world architecture patterns at different company stages.
 
+## Cost Triage Loop
+
+Cost optimization should be continuous: detect spend, attribute it to owners, reduce waste, then add guardrails so the same waste does not return.
+
+```mermaid
+flowchart TD
+    A[Billing Spike or Monthly Review] --> B[Group by service, tag, environment]
+    B --> C{Waste type?}
+    C -->|Idle| D[Stop/delete unused resources]
+    C -->|Oversized| E[Right-size compute/database]
+    C -->|Traffic| F[Cache, compress, reduce cross-zone/egress]
+    C -->|Commitment gap| G[Reserved Instances / Savings Plans]
+    C -->|Architecture| H[Change service or data flow]
+    D --> I[Set budget alerts and ownership tags]
+    E --> I
+    F --> I
+    G --> I
+    H --> I
+    I --> A
+```
+
+| Signal | First Investigation |
+|--------|---------------------|
+| NAT gateway cost spike | Private subnet egress, missing VPC endpoints, cross-AZ routing |
+| Database cost spike | Instance size, storage growth, IOPS, backups, replicas |
+| Serverless cost spike | Invocation count, duration, memory size, retries, logs |
+| Container cost spike | Minimum replicas, node utilization, image pulls, load balancers |
+| Logging cost spike | Debug logs, high-cardinality labels, retention period |
+
 ## Cost Optimization Strategies
 
 ### Right-Sizing Instances
@@ -452,6 +481,7 @@ graph TD
 ## Related Topics
 
 - [[Cloud Compute Options]] — compute cost models and pricing strategies
+- [[AWS Basics]] — core AWS services and the common deployment shape that drives cost
 - [[Cloud Networking VPC]] — NAT Gateway and cross-AZ data transfer costs
 - [[Cloud Infrastructure Components]] — CDN caching reduces origin costs
 - [[Database Architecture]] — managed vs self-hosted cost trade-offs
