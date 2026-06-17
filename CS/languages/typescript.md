@@ -478,6 +478,99 @@ type DynamicRoutes = Extract<Routes, `${string}:${string}`>;
 // "/users/:id" | "/posts/:slug/comments"
 ```
 
+## Runtime Validation with Zod
+
+TypeScript types are erased at runtime. `zod` validates untrusted data (API responses, form input, env vars) and infers TypeScript types from schemas — single source of truth.
+
+```typescript
+import { z } from "zod";
+
+// Define schema → TypeScript type is inferred automatically
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  age: z.number().int().min(0).max(150),
+  role: z.enum(["admin", "user", "viewer"]).default("user"),
+  createdAt: z.coerce.date(), // coerces ISO string → Date
+  profile: z.object({ bio: z.string().optional() }).optional(),
+});
+
+type User = z.infer<typeof UserSchema>; // use this everywhere instead of manual type
+
+// Safe parse (returns Result, never throws)
+const result = UserSchema.safeParse(apiResponse);
+if (!result.success) {
+  console.error(result.error.flatten()); // structured error messages
+} else {
+  console.log(result.data.email); // fully typed
+}
+
+// Transform and refine
+const PasswordSchema = z
+  .string()
+  .min(8)
+  .refine((v) => /[A-Z]/.test(v), { message: "Must have uppercase" })
+  .refine((v) => /[0-9]/.test(v), { message: "Must have number" });
+
+// Env variable validation (run at startup, fail fast)
+const EnvSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  PORT: z.coerce.number().default(3000),
+  NODE_ENV: z.enum(["development", "test", "production"]),
+});
+
+export const env = EnvSchema.parse(process.env); // throws with clear error if invalid
+```
+
+**Zod in API route (tRPC-style):**
+```typescript
+app.post("/users", async (req, res) => {
+  const body = UserCreateSchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ errors: body.error.flatten().fieldErrors });
+  }
+  const user = await db.user.create({ data: body.data });
+  res.json(user);
+});
+```
+
+## Type Narrowing Flow
+
+```mermaid
+flowchart TD
+    A[Value of type T] --> B{Narrowing check}
+    B -->|typeof x === 'string'| C[string]
+    B -->|instanceof Date| D[Date]
+    B -->|'field' in obj| E[Type with field]
+    B -->|x !== null| F[NonNullable T]
+    B -->|discriminant: x.kind === 'A'| G[Specific union member]
+    B -->|isUser type guard| H[User]
+    C --> I[Use string methods]
+    D --> J[Use Date methods]
+    H --> K[Use User properties]
+```
+
+```typescript
+// Custom type guard
+function isUser(value: unknown): value is User {
+  return UserSchema.safeParse(value).success;
+}
+
+// Exhaustiveness check with never
+type Shape = { kind: "circle"; radius: number } | { kind: "rect"; width: number; height: number };
+
+function area(shape: Shape): number {
+  switch (shape.kind) {
+    case "circle": return Math.PI * shape.radius ** 2;
+    case "rect":   return shape.width * shape.height;
+    default: {
+      const _exhaustive: never = shape; // compile error if new case not handled
+      return _exhaustive;
+    }
+  }
+}
+```
+
 ## Key Details
 
 - TypeScript checks compile-time possibilities; it does not prove runtime data is valid.

@@ -1458,6 +1458,84 @@ graph LR
 > - Automate everything: CI/CD, testing, infrastructure provisioning
 > - Keep services small but not tiny — a service should be owned by one team
 
+## API Versioning
+
+API versioning prevents breaking changes from reaching consumers without warning.
+
+### Versioning Strategies
+
+| Strategy | Example | Pros | Cons |
+|---|---|---|---|
+| **URL path** | `/v1/users`, `/v2/users` | Explicit, easy to route | URL pollution, must maintain multiple paths |
+| **Header** | `API-Version: 2024-01-01` | Clean URLs | Less visible, easy to forget |
+| **Query param** | `/users?version=2` | Easy to test in browser | Caching issues |
+| **Content negotiation** | `Accept: application/vnd.api+json;version=2` | HTTP-native | Complex, rarely used |
+
+**Recommended approach:** URL path versioning for REST APIs — it's explicit, easy to route at the gateway level, and easy to deprecate.
+
+### Versioning in Practice
+
+```typescript
+// Express — version-specific routers
+import { Router } from "express";
+
+const v1 = Router();
+v1.get("/users/:id", (req, res) => {
+  res.json({ id: req.params.id, name: "Alice" }); // v1 shape
+});
+
+const v2 = Router();
+v2.get("/users/:id", (req, res) => {
+  res.json({ id: req.params.id, fullName: "Alice Smith", email: "alice@example.com" }); // v2 shape
+});
+
+app.use("/v1", v1);
+app.use("/v2", v2);
+```
+
+**Deprecation workflow:**
+1. Release v2 with new shape
+2. Add `Deprecation: true` and `Sunset: Sat, 01 Jun 2025 00:00:00 GMT` headers to v1 responses
+3. Log which consumers are still calling v1 (via API gateway metrics)
+4. Notify consumers, wait out deprecation window, then sunset v1
+
+## Deployment Strategies
+
+### Blue-Green Deployment
+
+```mermaid
+flowchart LR
+    LB[Load Balancer] -->|100% traffic| Blue[Blue\nv1.5 running]
+    Green[Green\nv1.6 deploy] -.->|deploy + test| Green
+    LB -->|switch 100% traffic| Green
+    Blue -.->|keep alive briefly for rollback| Blue
+```
+
+Zero-downtime deployment: deploy v1.6 to Green environment, run smoke tests, switch the load balancer. Rollback = flip the load balancer back.
+
+### Canary Release
+
+```mermaid
+flowchart LR
+    LB[Load Balancer] -->|95%| Stable[Stable\nv1.5]
+    LB -->|5%| Canary[Canary\nv1.6]
+    Canary -.->|monitor error rate + latency| Metrics
+    Metrics -.->|if healthy: increase %| LB
+    Metrics -.->|if degraded: rollback| LB
+```
+
+```typescript
+// AWS CDK — CodeDeploy canary (Lambda example)
+import * as codedeploy from "aws-cdk-lib/aws-codedeploy";
+
+new codedeploy.LambdaDeploymentGroup(this, "Canary", {
+  deploymentConfig: codedeploy.LambdaDeploymentConfig.CANARY_10PERCENT_5MINUTES,
+  // shifts 10% of traffic to new version, waits 5 min, then 100% if alarms are green
+  alarms: [errorRateAlarm, latencyAlarm],
+  autoRollback: { failedDeployment: true },
+});
+```
+
 ## When to Use
 
 - **Large teams** (10+ developers) where coordination overhead is a bottleneck

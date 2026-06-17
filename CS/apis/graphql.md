@@ -861,6 +861,113 @@ function LiveFeed() {
 
 **Production note:** `graphql-subscriptions` PubSub is in-process only (single server). Use Redis Pub/Sub (`graphql-redis-subscriptions`) or NATS for multi-instance deployments.
 
+## Security
+
+### Query Depth & Complexity Limits
+
+Without limits, a malicious query can exhaust server resources:
+
+```graphql
+# Billion laughs attack — nested lists explode combinatorially
+{ users { friends { friends { friends { name } } } } }
+```
+
+```typescript
+import { createComplexityLimitRule } from "graphql-validation-complexity";
+import depthLimit from "graphql-depth-limit";
+import { ApolloServer } from "@apollo/server";
+
+const server = new ApolloServer({
+  schema,
+  validationRules: [
+    depthLimit(7),                              // reject queries deeper than 7 levels
+    createComplexityLimitRule(1000, {           // reject queries scoring > 1000
+      scalarCost: 1,
+      objectCost: 2,
+      listFactor: 10,
+    }),
+  ],
+});
+```
+
+### Rate Limiting by Operation
+
+```typescript
+// In Apollo Server plugin
+const rateLimitPlugin = {
+  requestDidStart() {
+    return {
+      async didResolveOperation({ request, document }) {
+        const key = `gql:${request.http?.headers.get("x-user-id")}`;
+        const count = await redis.incr(key);
+        if (count === 1) await redis.expire(key, 60);
+        if (count > 100) throw new GraphQLError("Rate limit exceeded", {
+          extensions: { code: "RATE_LIMITED" },
+        });
+      },
+    };
+  },
+};
+```
+
+### Persisted Queries
+
+Clients send a hash instead of the full query text — improves performance and blocks arbitrary query injection:
+
+```typescript
+import { createPersistedQueryLink } from "@apollo/client/link/persisted-queries";
+import { sha256 } from "crypto-hash";
+
+const link = createPersistedQueryLink({ sha256 }).concat(httpLink);
+// First request sends hash; server responds with "PersistedQueryNotFound"
+// Client retries with full query; server caches hash→query
+// Subsequent requests send hash only
+```
+
+## Schema Federation (Apollo Federation)
+
+Federation allows splitting a GraphQL schema across multiple services, each owning its own types, while exposing a unified graph to clients via a Router.
+
+```mermaid
+flowchart LR
+    Client --> Router[Apollo Router\nunified schema]
+    Router --> US[Users Subgraph\nUser type]
+    Router --> OS[Orders Subgraph\nOrder type]
+    Router --> PS[Products Subgraph\nProduct type]
+    OS -.->|extends User| US
+    PS -.->|extends Order| OS
+```
+
+```typescript
+// users-subgraph: defines User and marks it as an entity
+import { buildSubgraphSchema } from "@apollo/subgraph";
+import { gql } from "graphql-tag";
+
+const typeDefs = gql`
+  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+  type User @key(fields: "id") {
+    id: ID!
+    name: String!
+    email: String!
+  }
+`;
+
+// orders-subgraph: extends User from another subgraph
+const typeDefs = gql`
+  extend schema @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key", "@external"])
+
+  type User @key(fields: "id") {
+    id: ID! @external
+    orders: [Order!]!  # added field — owned by this subgraph
+  }
+
+  type Order { id: ID! total: Float! }
+`;
+```
+
+**Federation when:** you have multiple teams each owning part of the graph. Each team deploys independently; the Router composes the schemas. Avoid federation for single-team monolithic GraphQL APIs — it adds significant operational complexity.
+
 ## Related Topics
 
 - [[External Authentication Providers]] — Firebase, Google, GitHub OAuth integration with GraphQL

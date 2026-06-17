@@ -436,6 +436,56 @@ function createReconnectingWs(url: string, opts: WsOptions = {}) {
 
 **Why jitter?** Pure exponential backoff causes a thundering herd when many clients disconnect simultaneously (e.g., server restart). Jitter spreads reconnect attempts across the window, reducing server spike load.
 
+## Horizontal Scaling
+
+A single WebSocket server is a single point of failure and a scaling ceiling. When you run multiple server instances, a message broadcast from server A won't reach clients connected to server B — you need a pub/sub layer to fan out messages across all nodes.
+
+```mermaid
+flowchart LR
+    Client1 -->|ws| LB[Load Balancer\nsticky sessions]
+    Client2 -->|ws| LB
+    Client3 -->|ws| LB
+    LB -->|sticky by cookie| WS1[WS Server 1\n500 connections]
+    LB -->|sticky by cookie| WS2[WS Server 2\n500 connections]
+    WS1 <-->|SUBSCRIBE/PUBLISH| Redis[(Redis\nPub/Sub)]
+    WS2 <-->|SUBSCRIBE/PUBLISH| Redis
+```
+
+```typescript
+import { WebSocketServer, WebSocket } from "ws";
+import { createClient } from "redis";
+
+const wss = new WebSocketServer({ port: 8080 });
+const clients = new Set<WebSocket>();
+
+// Separate publisher and subscriber clients (Redis requires separate connections)
+const pub = createClient();
+const sub = createClient();
+await pub.connect();
+await sub.connect();
+
+// Subscribe to broadcast channel — receive messages from ALL server instances
+await sub.subscribe("broadcast", (message) => {
+  // Fan out to all clients connected to THIS server
+  for (const ws of clients) {
+    if (ws.readyState === WebSocket.OPEN) ws.send(message);
+  }
+});
+
+wss.on("connection", (ws) => {
+  clients.add(ws);
+  ws.on("message", async (data) => {
+    // Publish — Redis delivers to all subscribers on all servers
+    await pub.publish("broadcast", data.toString());
+  });
+  ws.on("close", () => clients.delete(ws));
+});
+```
+
+**Sticky sessions (load balancer config):** WebSocket connections are long-lived — the load balancer must route the same client to the same server for the connection's lifetime. Configure `stickiness` by session cookie in ALB or nginx `ip_hash`.
+
+**Scaling limits:** Redis Pub/Sub is fire-and-forget (no persistence, no acknowledgement). For reliable delivery with many servers, use Redis Streams or Kafka instead.
+
 ## Production Checklist
 
 - Use `wss://` in production and validate `Origin` during the upgrade to reduce cross-site WebSocket hijacking risk.

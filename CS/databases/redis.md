@@ -262,6 +262,81 @@ const user = await cluster.get("user:123");
 - Test failover under load. Async replication means a promoted replica can miss acknowledged writes unless the app waits for replicas explicitly.
 - Keep key names predictable (`domain:id:field`) and document high-cardinality or large-value keys.
 
+## Redis Streams
+
+Streams are a durable, ordered log structure — like Kafka but simpler. Unlike Pub/Sub (fire-and-forget), Streams persist messages and support consumer groups for reliable at-least-once processing.
+
+```typescript
+import { createClient } from "redis";
+const redis = createClient();
+
+// Producer: append events to stream
+await redis.xAdd("orders", "*", {  // "*" = auto-generate ID
+  orderId: "ord-123",
+  userId: "user-456",
+  total: "99.99",
+  event: "order.created",
+});
+
+// Consumer (single): read from stream
+const messages = await redis.xRead(
+  [{ key: "orders", id: "0" }], // "0" = from start; "$" = new only
+  { COUNT: 10, BLOCK: 5000 }    // block 5s for new messages
+);
+
+// Consumer group: multiple workers share the stream
+await redis.xGroupCreate("orders", "processors", "0", { MKSTREAM: true });
+
+// Worker reads unacknowledged messages for its consumer
+const msgs = await redis.xReadGroup("processors", "worker-1", [{ key: "orders", id: ">" }], { COUNT: 10 });
+for (const { id, message } of msgs?.[0]?.messages ?? []) {
+  await processOrder(message);
+  await redis.xAck("orders", "processors", id); // ack after successful processing
+}
+
+// Trim old messages (keep last 10k)
+await redis.xTrimApprox("orders", "MAXLEN", 10_000);
+```
+
+**Streams vs Pub/Sub:**
+| | Streams | Pub/Sub |
+|---|---|---|
+| Persistence | Yes (until trimmed) | No |
+| Consumer groups | Yes (competing consumers) | No (broadcast only) |
+| Replay | Yes (from any ID) | No |
+| At-least-once | Yes (ACK required) | No |
+| Use when | Task queues, event sourcing, audit log | Live notifications, cache invalidation |
+
+## Advanced Data Structures
+
+```typescript
+// HyperLogLog — approximate unique count with O(1) memory (< 1KB regardless of cardinality)
+await redis.pfAdd("unique:visitors:2024-01-15", "user-1", "user-2", "user-3");
+await redis.pfAdd("unique:visitors:2024-01-15", "user-1"); // duplicates ignored
+const count = await redis.pfCount("unique:visitors:2024-01-15"); // ~3 (±0.81% error)
+// Merge multiple days: pfMerge("unique:visitors:week", "unique:visitors:2024-01-15", ...)
+
+// Sorted Set — leaderboard with O(log N) operations
+await redis.zAdd("leaderboard", [
+  { score: 9850, value: "alice" },
+  { score: 9200, value: "bob" },
+  { score: 7100, value: "carol" },
+]);
+const top3 = await redis.zRangeWithScores("leaderboard", 0, 2, { REV: true });
+// [{ value: 'alice', score: 9850 }, ...]
+
+// Geo — distance queries on geographic coordinates
+await redis.geoAdd("shops", [
+  { longitude: -73.9857, latitude: 40.7484, member: "midtown-store" },
+  { longitude: -74.0060, latitude: 40.7128, member: "downtown-store" },
+]);
+const nearby = await redis.geoSearch("shops",
+  { longitude: -73.99, latitude: 40.73 },
+  { radius: 5, unit: "km" },
+  { SORT: "ASC", COUNT: 5 }
+);
+```
+
 ## When to Use
 
 - **Caching**: Session stores, full-page caches, query result caches where low latency matters.

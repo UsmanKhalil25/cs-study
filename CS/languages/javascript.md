@@ -196,6 +196,24 @@ console.log("sync end");
 > [!tip] Pro Tip
 > In UI code, long synchronous work blocks rendering and input. Break CPU-heavy work into chunks, move it to a Worker, or push it behind server-side processing.
 
+### Modules
+
+ES modules are statically analyzable and use live bindings.
+
+```javascript
+// counter.js
+export let count = 0;
+export function increment() { count += 1; }
+```
+
+```javascript
+// app.js
+import { count, increment } from "./counter.js";
+console.log(count); // 0
+increment();
+console.log(count); // 1 — live binding reflects the change
+```
+
 ## Core Concepts
 
 ### Values and Types
@@ -244,30 +262,328 @@ console.log({ [key]: "cached" });
 <!-- cached -->
 <!-- { '[object Object]': 'cached' } -->
 
-### Modules
+## Event Loop — Deep Dive
 
-ES modules are statically analyzable and use live bindings.
+The event loop has one call stack, one microtask queue, and one or more macrotask queues (timers, I/O, UI events). After every macrotask, the engine **drains the entire microtask queue** before picking the next macrotask.
+
+```mermaid
+flowchart TD
+    Start([Run script]) --> Stack[Call Stack]
+    Stack -->|stack empty| MQ{Microtask Queue\nempty?}
+    MQ -->|No| Micro[Run next microtask]
+    Micro --> MQ
+    MQ -->|Yes| TQ{Task Queue\nempty?}
+    TQ -->|No| Task[Run next task]
+    Task --> Stack
+    TQ -->|Yes| Wait([Wait for tasks])
+    Wait --> TQ
+```
 
 ```javascript
-// counter.js
-export let count = 0;
-export function increment() {
-  count += 1;
+// Predict the output — classic interview question
+console.log("1");                         // sync
+
+setTimeout(() => console.log("2"), 0);   // macrotask (timer)
+
+Promise.resolve()
+  .then(() => {
+    console.log("3");                     // microtask
+    setTimeout(() => console.log("4"), 0); // schedules another macrotask
+  })
+  .then(() => console.log("5"));         // microtask (chained)
+
+console.log("6");                         // sync
+```
+
+<!-- Output: 1, 6, 3, 5, 2, 4 -->
+<!-- Reasoning:
+  1, 6 = synchronous code
+  3, 5 = microtasks drained fully before any macrotask
+  2 = first macrotask (setTimeout from outer scope)
+  4 = second macrotask (setTimeout scheduled inside microtask)
+-->
+
+### Microtask vs Macrotask Sources
+
+| Queue | Sources | When it runs |
+|---|---|---|
+| **Microtask** | `Promise.then/catch/finally`, `queueMicrotask()`, `MutationObserver` | After every task, before next task |
+| **Macrotask** (Task Queue) | `setTimeout`, `setInterval`, `setImmediate` (Node), I/O callbacks, UI events | One per event loop tick, after microtask queue drains |
+
+> [!warning] Microtask starvation
+> If microtasks keep scheduling more microtasks, the macrotask queue never runs — the browser stops rendering and the UI freezes. Never create an infinite microtask loop.
+
+```javascript
+// DANGER: starves the macrotask queue
+function infiniteMicrotask() {
+  Promise.resolve().then(infiniteMicrotask); // infinite microtask loop
 }
 ```
 
-```javascript
-// app.js
-import { count, increment } from "./counter.js";
+## Promises — Complete Guide
 
-console.log(count);
-increment();
-console.log(count);
+### Creating & Chaining
+
+```javascript
+// Promise constructor — wraps callback-style APIs
+function readFile(path) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(path, "utf-8", (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+}
+
+// Chain: each .then() returns a new promise
+readFile("./data.json")
+  .then(JSON.parse)                   // transform the value
+  .then(data => processData(data))    // async or sync — both work
+  .then(result => console.log(result))
+  .catch(err => console.error(err))   // handles any rejection in the chain
+  .finally(() => cleanup());          // always runs
 ```
 
-<!-- Output: -->
-<!-- 0 -->
-<!-- 1 -->
+### Promise Combinators
+
+```javascript
+const p1 = fetch("/api/users");
+const p2 = fetch("/api/orders");
+const p3 = fetch("/api/products");
+
+// Promise.all — all must succeed; rejects on first failure
+const [users, orders, products] = await Promise.all([p1, p2, p3]);
+
+// Promise.allSettled — waits for all, never rejects; useful when some may fail
+const results = await Promise.allSettled([p1, p2, p3]);
+results.forEach(result => {
+  if (result.status === "fulfilled") console.log(result.value);
+  else console.error(result.reason);
+});
+
+// Promise.race — resolves/rejects with the first settled
+const timeout = new Promise((_, reject) =>
+  setTimeout(() => reject(new Error("timeout")), 5000)
+);
+const data = await Promise.race([fetch("/api/data"), timeout]);
+
+// Promise.any — resolves with the first successful; rejects only if ALL fail
+const fastest = await Promise.any([mirror1.fetch(), mirror2.fetch(), mirror3.fetch()]);
+```
+
+| Combinator | Resolves when | Rejects when |
+|---|---|---|
+| `Promise.all` | All resolve | First rejects |
+| `Promise.allSettled` | All settle (resolve OR reject) | Never |
+| `Promise.race` | First settles | First rejects |
+| `Promise.any` | First resolves | All reject |
+
+### Error Handling Patterns
+
+```javascript
+// Pattern 1: try/catch with async/await (preferred)
+async function fetchUser(id) {
+  try {
+    const res = await fetch(`/api/users/${id}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error("fetchUser failed:", err.message);
+    return null; // or rethrow
+  }
+}
+
+// Pattern 2: Result type — never throws, caller checks
+async function safeRequest(url) {
+  try {
+    const data = await fetch(url).then(r => r.json());
+    return { ok: true, data };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
+
+// Pattern 3: unhandledRejection safety net (Node.js)
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled rejection:", reason);
+  // log and exit — never silently swallow
+});
+```
+
+## Modules — CJS vs ESM
+
+```mermaid
+flowchart LR
+    A[Module System] --> B[CommonJS\nNode.js legacy]
+    A --> C[ES Modules\nModern standard]
+    B --> D["require() — runtime\nsynchronous\nmutable exports"]
+    C --> E["import — static\nasynchronous\nlive bindings"]
+```
+
+### CommonJS (CJS)
+
+```javascript
+// math.js
+const PI = 3.14159;
+function circle(r) { return PI * r * r; }
+module.exports = { PI, circle }; // exports is an object you mutate
+
+// app.js
+const { PI, circle } = require("./math"); // runtime, synchronous
+console.log(circle(5)); // 78.53975
+
+// Dynamic require — valid in CJS
+const moduleName = condition ? "./a" : "./b";
+const mod = require(moduleName);
+```
+
+### ES Modules (ESM)
+
+```javascript
+// math.js
+export const PI = 3.14159;
+export function circle(r) { return PI * r * r; }
+export default { PI, circle }; // named + default exports
+
+// app.js
+import { PI, circle } from "./math.js"; // static — resolved at parse time
+import defaultExport from "./math.js";
+
+// Dynamic import — lazy load (returns a promise)
+const { circle } = await import("./math.js");
+```
+
+### Key Differences
+
+| | CommonJS | ES Modules |
+|---|---|---|
+| **Syntax** | `require()` / `module.exports` | `import` / `export` |
+| **Resolution** | Runtime | Parse time (static) |
+| **Loading** | Synchronous | Asynchronous |
+| **Bindings** | Snapshot copy | Live reference |
+| **Tree shaking** | Not possible | Yes (bundlers eliminate unused exports) |
+| **Top-level `await`** | No | Yes |
+| **`__dirname` / `__filename`** | Built-in | Need `import.meta.url` workaround |
+| **Default in Node.js** | Yes (`.js` files) | `.mjs` or `"type": "module"` in `package.json` |
+| **Browser** | No (bundler required) | Native support |
+
+```json
+// package.json — enable ESM for all .js files
+{ "type": "module" }
+```
+
+```javascript
+// ESM equivalent of __dirname
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+```
+
+**Interview tip:** CJS exports are evaluated once and cached — `require()` the same module twice returns the same object. ESM live bindings mean consumers see updated values when the exporting module changes them.
+
+## Concurrency & Parallelism
+
+JavaScript is **single-threaded** per agent — only one piece of JS runs at a time. It achieves concurrency through asynchronous I/O and parallelism through Web Workers / Worker Threads.
+
+```mermaid
+flowchart TD
+    A[JavaScript Model] --> B[Concurrency\nasync/await, Promises\nInterleaved execution\non one thread]
+    A --> C[Parallelism\nWeb Workers\nWorker Threads\nTrue parallel execution\non OS threads]
+    B --> D[I/O bound tasks\nfetch, fs, DB queries]
+    C --> E[CPU bound tasks\nimage processing\ncryptography\nlarge datasets]
+```
+
+### Async Concurrency (I/O Bound)
+
+```javascript
+// Sequential — takes 3 seconds
+const user    = await fetchUser(id);    // 1s
+const orders  = await fetchOrders(id);  // 1s
+const profile = await fetchProfile(id); // 1s
+
+// Concurrent — takes 1 second (all fire simultaneously)
+const [user, orders, profile] = await Promise.all([
+  fetchUser(id),
+  fetchOrders(id),
+  fetchProfile(id),
+]);
+
+// Controlled concurrency — limit to 5 at a time
+import pLimit from "p-limit";
+const limit = pLimit(5);
+const results = await Promise.all(
+  urls.map(url => limit(() => fetch(url).then(r => r.json())))
+);
+```
+
+### True Parallelism with Worker Threads (Node.js)
+
+```javascript
+// main.js — offload CPU-heavy work to a worker
+import { Worker } from "worker_threads";
+
+function runInWorker(data) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker("./worker.js", { workerData: data });
+    worker.on("message", resolve);
+    worker.on("error", reject);
+  });
+}
+
+// Process 4 chunks in parallel on separate threads
+const chunks = splitIntoChunks(largeDataset, 4);
+const results = await Promise.all(chunks.map(runInWorker));
+const final = mergeResults(results);
+```
+
+```javascript
+// worker.js
+import { workerData, parentPort } from "worker_threads";
+
+// This runs on a separate OS thread — doesn't block main thread
+const result = heavyCpuWork(workerData);
+parentPort.postMessage(result);
+```
+
+### Web Workers (Browser)
+
+```javascript
+// main.js
+const worker = new Worker("/worker.js");
+worker.postMessage({ imageData: canvas.getImageData(0, 0, 800, 600) });
+worker.onmessage = (e) => drawResult(e.data.processed);
+
+// worker.js (separate file, no DOM access)
+self.onmessage = (e) => {
+  const processed = applyFilter(e.data.imageData); // runs off main thread
+  self.postMessage({ processed });
+};
+```
+
+### SharedArrayBuffer & Atomics
+
+For truly shared memory between workers (requires `Cross-Origin-Isolation` headers):
+
+```javascript
+// Shared memory between main thread and worker
+const sharedBuffer = new SharedArrayBuffer(4);
+const view = new Int32Array(sharedBuffer);
+
+// Atomics prevent race conditions
+Atomics.add(view, 0, 1);           // atomic increment
+Atomics.wait(view, 0, 0);          // block until view[0] !== 0 (workers only)
+Atomics.notify(view, 0, 1);        // wake one waiting thread
+```
+
+**When to use each:**
+| Problem | Solution |
+|---|---|
+| Multiple API calls | `Promise.all` — concurrent async |
+| Hundreds of parallel requests | `Promise.all` + `p-limit` — controlled concurrency |
+| CPU-heavy computation | Worker Threads / Web Workers |
+| Shared mutable state across workers | `SharedArrayBuffer` + `Atomics` |
+| Streaming large results | Async generators |
 
 ## Code Examples
 
@@ -357,11 +673,11 @@ console.log(shallow.roles === original.roles);
 
 ### Q3: What is the event loop?
 
-**Answer:** The event loop coordinates execution between the call stack and host queues. Synchronous code runs first, promise microtasks run after the stack clears, and tasks such as timers and UI events run after microtasks.
+**Answer:** The event loop coordinates execution between the call stack, microtask queue, and task queue. After each macrotask, the engine fully drains the microtask queue before picking the next macrotask. Synchronous code runs first, then microtasks (promise callbacks, `queueMicrotask`), then timers/IO callbacks. See the **Event Loop — Deep Dive** section above for the full diagram and prediction exercise.
 
 ### Q4: What is the difference between microtasks and macrotasks?
 
-**Answer:** Microtasks include promise reactions and `queueMicrotask`; they run before the next task. Tasks include timers, IO callbacks, and UI events. A long or recursively scheduled microtask chain can starve rendering and timers.
+**Answer:** Microtasks (Promise `.then`, `queueMicrotask`, `MutationObserver`) drain completely after every macrotask before the next macrotask runs — even if they schedule more microtasks. This means microtasks can starve the task queue. Macrotasks (setTimeout, setInterval, I/O, UI events) are processed one per loop tick. Order: sync → microtasks → next macrotask → microtasks → …
 
 ### Q5: How does `this` work?
 
@@ -377,11 +693,11 @@ console.log(shallow.roles === original.roles);
 
 ### Q8: What are promises?
 
-**Answer:** A promise represents the eventual result of an async operation. It starts pending and settles as fulfilled or rejected. `.then`, `.catch`, and `await` schedule continuation work once the promise settles.
+**Answer:** A Promise is an object representing eventual completion or failure of async work. States: `pending` → `fulfilled` (`.then`) or `rejected` (`.catch`). Promise chains are built by returning from `.then` handlers — returning a plain value wraps it, returning a Promise flattens it. `async/await` is syntactic sugar over promises. See the **Promises — Complete Guide** section above.
 
 ### Q9: What is the difference between `Promise.all` and `Promise.allSettled`?
 
-**Answer:** `Promise.all` rejects as soon as one input rejects. `Promise.allSettled` waits for every input and returns each result's status, which is useful for best-effort batch work.
+**Answer:** `Promise.all` — waits for all, rejects immediately on the first rejection. `Promise.allSettled` — waits for all, never rejects, gives `{status, value/reason}` per promise. Also: `Promise.race` (first to settle wins), `Promise.any` (first to *resolve* wins, rejects only if all fail). Use `Promise.allSettled` for independent batch work where partial failure is acceptable.
 
 ### Q10: What is hoisting?
 
@@ -403,9 +719,43 @@ console.log(shallow.roles === original.roles);
 
 **Answer:** A generator function can pause and resume execution with `yield`. It returns an iterator and is useful for lazy sequences and custom iteration protocols.
 
+```javascript
+// Lazy infinite sequence
+function* naturals() {
+  let n = 1;
+  while (true) yield n++;
+}
+
+function* take(n, iter) {
+  for (const value of iter) {
+    if (n-- <= 0) return;
+    yield value;
+  }
+}
+
+console.log([...take(5, naturals())]); // [1, 2, 3, 4, 5]
+
+// Async generator — stream database rows without loading all into memory
+async function* fetchPagedUsers(pageSize = 100) {
+  let page = 0;
+  while (true) {
+    const users = await db.users.findMany({ skip: page * pageSize, take: pageSize });
+    if (users.length === 0) return;
+    yield* users; // yield each user individually
+    page++;
+  }
+}
+
+for await (const user of fetchPagedUsers()) {
+  await processUser(user); // one at a time, memory stays flat
+}
+```
+
+**Async generators are ideal for:** paginated API consumption, streaming database cursors, reading large files line by line, and implementing async pipelines.
+
 ### Q15: How do ES modules differ from CommonJS?
 
-**Answer:** ES modules use static `import`/`export`, live bindings, and async loading semantics. CommonJS uses runtime `require`, exports object mutation, and is historically Node-centered.
+**Answer:** ESM: static analysis at parse time, live bindings (consumer sees updated exports), supports top-level `await`, native in browsers, tree-shaking. CJS: runtime `require()`, synchronous, snapshot copy of exports, native to Node.js. Cannot mix without transpilation or interop wrappers. See the **Modules — CJS vs ESM** section above for the full comparison table and code examples.
 
 ### Q16: What is `Object.create(null)` used for?
 

@@ -577,6 +577,78 @@ CREATE INDEX idx_orders_user_covering ON orders (user_id, created_at, status);
 -- Now the query is served entirely from the index (Index Only Scan)
 ```
 
+## Table Partitioning
+
+Partitioning splits a large table into smaller physical pieces while keeping the same logical interface. Useful for tables with billions of rows, time-series data, and archival patterns.
+
+```sql
+-- Range partitioning by month (PostgreSQL)
+CREATE TABLE orders (
+    id BIGSERIAL,
+    user_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    total NUMERIC(10,2)
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE orders_2024_01 PARTITION OF orders
+    FOR VALUES FROM ('2024-01-01') TO ('2024-02-01');
+CREATE TABLE orders_2024_02 PARTITION OF orders
+    FOR VALUES FROM ('2024-02-01') TO ('2024-03-01');
+
+-- Queries automatically pruned to relevant partitions
+EXPLAIN SELECT * FROM orders WHERE created_at >= '2024-01-15';
+-- Only scans orders_2024_01, not all partitions
+
+-- Archive: detach old partition, attach to archive table, or drop
+ALTER TABLE orders DETACH PARTITION orders_2024_01;
+DROP TABLE orders_2024_01; -- instant, no vacuum needed
+```
+
+**Partitioning strategies:**
+| Strategy | Key | Use For |
+|---|---|---|
+| Range | date, ID | Time-series, logs, events |
+| List | status, region | Known finite values |
+| Hash | user_id | Even distribution, no natural range |
+
+**Partitioning rules:** always include the partition key in `WHERE` or queries scan all partitions. Index each partition individually (indexes don't span partitions in PostgreSQL).
+
+## Deadlock Handling
+
+A deadlock occurs when two transactions hold locks each other needs. PostgreSQL detects and kills one automatically.
+
+```sql
+-- Transaction 1                -- Transaction 2
+BEGIN;                          BEGIN;
+UPDATE accounts SET bal=bal-100 UPDATE accounts SET bal=bal+50
+  WHERE id=1;  -- locks row 1     WHERE id=2;  -- locks row 2
+UPDATE accounts SET bal=bal+100 UPDATE accounts SET bal=bal-50
+  WHERE id=2;  -- waits for T2    WHERE id=1;  -- waits for T1 → DEADLOCK
+COMMIT;                         COMMIT;
+```
+
+**Prevention strategies:**
+1. **Consistent lock order** — always acquire locks in the same order (e.g., always lock lower ID first)
+2. **Use `SELECT FOR UPDATE SKIP LOCKED`** for queue-style processing
+3. **Short transactions** — hold locks for the minimum time
+4. **`NOWAIT` or `LOCK TIMEOUT`** — fail fast instead of waiting
+
+```sql
+-- Queue processing without deadlocks
+SELECT id, payload FROM jobs
+WHERE status = 'pending'
+ORDER BY id
+LIMIT 1
+FOR UPDATE SKIP LOCKED; -- skip rows locked by other workers
+```
+
+```sql
+-- Detect deadlocks in logs
+-- Set in postgresql.conf:
+-- log_lock_waits = on
+-- deadlock_timeout = 1s  (log if waiting more than 1s for a lock)
+```
+
 ## When to Use
 
 - **Financial systems** — ACID guarantees for banking, payments, accounting

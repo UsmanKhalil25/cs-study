@@ -570,6 +570,78 @@ const AdminPanel = lazy(() => import('./AdminPanel'));
 </Suspense>
 ```
 
+## Memory Leaks & Cleanup
+
+Memory leaks in React happen when async work or subscriptions outlive the component. The symptom: "Can't perform state update on unmounted component" (React 17) or silent memory growth (React 18+).
+
+```jsx
+// PROBLEM: setState called after unmount
+function SearchResults({ query }) {
+  const [results, setResults] = useState([]);
+  useEffect(() => {
+    fetch(`/api/search?q=${query}`)
+      .then(r => r.json())
+      .then(data => setResults(data)); // may run after unmount
+  }, [query]);
+}
+
+// FIX 1: AbortController to cancel inflight requests
+function SearchResults({ query }) {
+  const [results, setResults] = useState([]);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/search?q=${query}`, { signal: controller.signal })
+      .then(r => r.json())
+      .then(data => setResults(data))
+      .catch(err => { if (err.name !== 'AbortError') throw err; });
+    return () => controller.abort(); // cleanup cancels the request
+  }, [query]);
+}
+
+// FIX 2: Ignore stale results with a flag
+useEffect(() => {
+  let cancelled = false;
+  fetchData().then(data => { if (!cancelled) setResults(data); });
+  return () => { cancelled = true; };
+}, [query]);
+
+// FIX 3: Subscription cleanup (WebSocket, EventEmitter)
+useEffect(() => {
+  const ws = new WebSocket('wss://example.com');
+  ws.onmessage = (e) => setMessage(e.data);
+  return () => ws.close(); // always clean up subscriptions
+}, []);
+```
+
+**Common leak sources:** event listeners added to `window`/`document`, `setInterval` not cleared, subscriptions (WebSocket, EventSource, RxJS), third-party libraries initialized in effects.
+
+## React Profiler API
+
+Use the Profiler to measure render performance programmatically:
+
+```jsx
+import { Profiler } from 'react';
+
+function onRenderCallback(id, phase, actualDuration, baseDuration, startTime, commitTime) {
+  // id: the "id" prop of the Profiler
+  // phase: "mount" or "update"
+  // actualDuration: time spent rendering this update
+  // baseDuration: estimated time without memoization
+  if (actualDuration > 16) { // > one frame (60fps)
+    console.warn(`Slow render: ${id} took ${actualDuration.toFixed(1)}ms in ${phase}`);
+  }
+}
+
+<Profiler id="ProductList" onRender={onRenderCallback}>
+  <ProductList items={items} />
+</Profiler>
+```
+
+**React DevTools Profiler** — record a session, look for:
+- Components with wide bars (slow renders)
+- Components that re-render without their props changing (wasted renders)
+- `memo` components that re-render despite wrapping (stale callback references, context changes)
+
 ### Prop Drilling Solutions
 
 | Solution | Complexity | Best For |

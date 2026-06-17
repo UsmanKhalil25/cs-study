@@ -584,6 +584,66 @@ export default function Page() {
 > [!info] App Router vs Pages Router
 > Both routers can coexist in the same project. The `app/` directory takes precedence for matching routes. Use this to migrate incrementally rather than all at once.
 
+## Middleware Patterns
+
+Next.js Middleware runs at the edge before a request is routed. Use it for authentication, redirects, A/B testing, geo-routing, and rate limiting.
+
+```typescript
+// middleware.ts (project root)
+import { NextRequest, NextResponse } from "next/server";
+import { verifyJwt } from "@/lib/auth";
+
+export const config = {
+  matcher: ["/dashboard/:path*", "/api/protected/:path*"],
+};
+
+export async function middleware(req: NextRequest) {
+  const token = req.cookies.get("token")?.value;
+
+  // 1. Unauthenticated → redirect to login
+  if (!token) {
+    return NextResponse.redirect(new URL(`/login?next=${req.nextUrl.pathname}`, req.url));
+  }
+
+  // 2. Invalid token → clear cookie and redirect
+  const payload = await verifyJwt(token).catch(() => null);
+  if (!payload) {
+    const res = NextResponse.redirect(new URL("/login", req.url));
+    res.cookies.delete("token");
+    return res;
+  }
+
+  // 3. Role-based access
+  if (req.nextUrl.pathname.startsWith("/dashboard/admin") && payload.role !== "admin") {
+    return NextResponse.redirect(new URL("/unauthorized", req.url));
+  }
+
+  // 4. Pass user info to server components via headers
+  const res = NextResponse.next();
+  res.headers.set("x-user-id", payload.userId);
+  res.headers.set("x-user-role", payload.role);
+  return res;
+}
+```
+
+**Multi-tenant routing (subdomain → tenant):**
+
+```typescript
+export function middleware(req: NextRequest) {
+  const hostname = req.headers.get("host") ?? "";
+  const subdomain = hostname.split(".")[0]; // e.g., "acme" from "acme.app.com"
+
+  if (subdomain && subdomain !== "www" && subdomain !== "app") {
+    // Rewrite to tenant-specific path without changing the URL the user sees
+    const url = req.nextUrl.clone();
+    url.pathname = `/tenants/${subdomain}${req.nextUrl.pathname}`;
+    return NextResponse.rewrite(url);
+  }
+}
+```
+
+**Middleware limitations:** runs in the Edge Runtime — no Node.js APIs, no file system, no native modules. Keep it fast (< 10ms). Heavy auth logic should go in Server Components or Route Handlers.
+
 ## Performance APIs
 
 ### `next/image` — Image Optimization

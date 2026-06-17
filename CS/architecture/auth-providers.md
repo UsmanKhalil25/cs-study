@@ -1342,6 +1342,130 @@ app.post("/auth/refresh", async (req, res) => {
 });
 ```
 
+## Authorization (RBAC)
+
+Authentication = who you are. Authorization = what you're allowed to do. These are separate concerns.
+
+**Role-Based Access Control (RBAC):**
+
+```typescript
+// Define roles and permissions
+const permissions = {
+  admin:  ["users:read", "users:write", "users:delete", "reports:read"],
+  editor: ["users:read", "reports:read", "content:write"],
+  viewer: ["users:read", "reports:read"],
+} as const;
+
+type Role = keyof typeof permissions;
+type Permission = (typeof permissions)[Role][number];
+
+function hasPermission(role: Role, permission: Permission): boolean {
+  return (permissions[role] as readonly string[]).includes(permission);
+}
+
+// Middleware
+function requirePermission(permission: Permission) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const userRole = req.user?.role as Role;
+    if (!userRole || !hasPermission(userRole, permission)) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    next();
+  };
+}
+
+app.delete("/users/:id", requirePermission("users:delete"), deleteUser);
+app.get("/reports", requirePermission("reports:read"), getReports);
+```
+
+**Attribute-Based Access Control (ABAC) — more flexible for complex rules:**
+
+```typescript
+// Users can only edit their own posts (unless admin)
+function canEditPost(user: User, post: Post): boolean {
+  return user.role === "admin" || post.authorId === user.id;
+}
+
+app.put("/posts/:id", async (req, res) => {
+  const post = await db.posts.findById(req.params.id);
+  if (!canEditPost(req.user, post)) return res.status(403).json({ error: "Forbidden" });
+  // ...
+});
+```
+
+## Passkeys & WebAuthn
+
+Passkeys replace passwords with public-key cryptography stored on the user's device (Face ID, Touch ID, Windows Hello). Resistant to phishing, no secrets sent over the wire.
+
+### Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Server
+    participant Authenticator as Authenticator\n(Face ID / Touch ID)
+
+    note over User,Authenticator: Registration
+    User->>Server: "Register passkey"
+    Server-->>Browser: challenge + relyingParty options
+    Browser->>Authenticator: create credential
+    Authenticator->>User: biometric prompt
+    User->>Authenticator: approve
+    Authenticator-->>Browser: public key + attestation
+    Browser->>Server: store public key
+
+    note over User,Authenticator: Authentication
+    User->>Server: "Sign in with passkey"
+    Server-->>Browser: challenge
+    Browser->>Authenticator: sign challenge with private key
+    Authenticator->>User: biometric prompt
+    User->>Authenticator: approve
+    Authenticator-->>Browser: signed assertion
+    Browser->>Server: verify signature with stored public key
+    Server-->>User: authenticated
+```
+
+### Implementation (Node.js + SimpleWebAuthn)
+
+```typescript
+import { generateRegistrationOptions, verifyRegistrationResponse,
+         generateAuthenticationOptions, verifyAuthenticationResponse } from "@simplewebauthn/server";
+
+const RP_ID = "example.com";
+const RP_NAME = "My App";
+
+// Step 1: Server generates registration options
+app.post("/auth/passkey/register/options", async (req, res) => {
+  const user = req.user;
+  const options = await generateRegistrationOptions({
+    rpName: RP_NAME, rpID: RP_ID,
+    userName: user.email,
+    attestationType: "none",
+    excludeCredentials: user.passkeys.map((pk) => ({ id: pk.credentialId, type: "public-key" })),
+  });
+  await redis.setex(`challenge:${user.id}`, 60, options.challenge);
+  res.json(options);
+});
+
+// Step 2: Verify registration response and store credential
+app.post("/auth/passkey/register/verify", async (req, res) => {
+  const user = req.user;
+  const expectedChallenge = await redis.get(`challenge:${user.id}`);
+  const { verified, registrationInfo } = await verifyRegistrationResponse({
+    response: req.body, expectedChallenge: expectedChallenge!,
+    expectedOrigin: "https://example.com", expectedRPID: RP_ID,
+  });
+  if (verified && registrationInfo) {
+    await db.passkeys.create({ userId: user.id, credentialId: registrationInfo.credentialID,
+      publicKey: registrationInfo.credentialPublicKey, counter: registrationInfo.counter });
+  }
+  res.json({ verified });
+});
+```
+
+**When to use passkeys:** new consumer apps (mobile-first), apps replacing password login, high-security contexts. Not yet universal — keep email/password as fallback for older devices.
+
 ## When to Use
 
 - **Firebase Auth** — When you want a managed auth solution with multiple providers, auto token refresh, and easy client SDK integration

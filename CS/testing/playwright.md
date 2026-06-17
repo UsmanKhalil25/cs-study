@@ -1064,6 +1064,87 @@ test("swipe navigates carousel", async ({ page }) => {
 
 **Run only mobile tests:** `npx playwright test --project="Mobile Chrome" --project="Mobile Safari"`
 
+## Accessibility Testing
+
+Playwright can run axe-core accessibility audits on any page, catching WCAG violations as part of your E2E suite.
+
+```typescript
+import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+
+test("homepage passes WCAG 2.1 AA", async ({ page }) => {
+  await page.goto("/");
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+
+  // Prints detailed violation report on failure
+  expect(results.violations).toEqual([]);
+});
+
+test("checkout form is accessible", async ({ page }) => {
+  await page.goto("/checkout");
+
+  const results = await new AxeBuilder({ page })
+    .exclude(".third-party-widget") // exclude known violations from vendor code
+    .analyze();
+
+  expect(results.violations).toEqual([]);
+});
+```
+
+```bash
+npm install @axe-core/playwright
+```
+
+**What axe catches:** missing alt text, insufficient color contrast, missing form labels, keyboard trap, invalid ARIA roles, missing heading hierarchy, focus management issues.
+
+**Integration tip:** Run axe audits as a separate project in CI (`--project="a11y"`) so violations are reported distinctly from functional test failures. Wire to a nightly run so regressions are caught quickly without slowing down PR checks.
+
+## Flaky Test Quarantine (CI Strategy)
+
+```typescript
+// playwright.config.ts — quarantine known flaky tests
+export default defineConfig({
+  projects: [
+    {
+      name: "stable",
+      grep: /^(?!.*@flaky)/,  // skip tests tagged @flaky
+      retries: 1,
+    },
+    {
+      name: "quarantine",
+      grep: /@flaky/,
+      retries: 3,             // give flaky tests more chances
+      reporter: "dot",        // less noise in CI output
+    },
+  ],
+});
+```
+
+```typescript
+// Mark a test as flaky while investigating root cause
+test("intermittent payment flow @flaky", async ({ page }) => {
+  // ...
+});
+```
+
+**Workflow:**
+1. Flaky test detected in CI → tag `@flaky`, open a tracking issue
+2. Quarantine project runs it with more retries but doesn't block the PR
+3. Investigate root cause (race condition, external API, test data collision)
+4. Fix and remove `@flaky` tag
+
+**Root cause categories:**
+| Category | Diagnosis | Fix |
+|---|---|---|
+| Network timing | Test passes locally, fails in slow CI | Use `waitForResponse()` instead of fixed waits |
+| Test data collision | Flaky when run in parallel | Scope test data to unique ID per test run |
+| External service | Random 3rd party API failures | Mock with `page.route()` |
+| Animation | Element position shifts during transition | `animations: 'disabled'` in config or wait for stable |
+| Race in app code | Real bug, not test bug | Fix the application race condition |
+
 ## When to Use
 
 - **POM:** When multiple tests interact with the same page or feature
