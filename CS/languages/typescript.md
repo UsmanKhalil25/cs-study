@@ -13,12 +13,12 @@ aliases:
   - TypeScript
   - TS Interview
 prerequisites:
-  - "[[js-interview|JS Interview]]"
+  - "[[javascript]]"
 date: 2026-06-17
 updated: 2026-06-17
 ---
 
-# TypeScript (Interview Prep)
+# TypeScript
 
 ## Overview
 
@@ -396,6 +396,88 @@ track("purchase", { userId: "u1" });
 <!-- Output: -->
 <!-- Compiler error: property 'amount' is missing. -->
 
+## Advanced Types
+
+### Mapped Types
+
+Mapped types iterate over a type's keys to produce a new type:
+
+```typescript
+// Make all properties nullable
+type Nullable<T> = { [K in keyof T]: T[K] | null };
+
+// Deep readonly
+type DeepReadonly<T> = {
+  readonly [K in keyof T]: T[K] extends object ? DeepReadonly<T[K]> : T[K];
+};
+
+// Pick properties by value type
+type PickByValue<T, V> = {
+  [K in keyof T as T[K] extends V ? K : never]: T[K];
+};
+
+type User = { id: string; name: string; age: number; active: boolean };
+type StringFields = PickByValue<User, string>; // { id: string; name: string }
+```
+
+### Conditional Types with `infer`
+
+`infer` extracts type information from another type inside a conditional:
+
+```typescript
+// Extract the element type of an array
+type ElementOf<T> = T extends (infer E)[] ? E : never;
+type Names = ElementOf<string[]>; // string
+
+// Unwrap a Promise
+type Awaited<T> = T extends Promise<infer U> ? Awaited<U> : T;
+type Value = Awaited<Promise<Promise<number>>>; // number
+
+// Extract first parameter of a function
+type FirstParam<F> = F extends (first: infer P, ...rest: any[]) => any ? P : never;
+type IdType = FirstParam<(id: string, name: string) => void>; // string
+
+// Extract error type from a Result union
+type ExtractError<T> = T extends { ok: false; error: infer E } ? E : never;
+type MyError = ExtractError<{ ok: false; error: "NotFound" } | { ok: true; data: User }>;
+// "NotFound"
+```
+
+### Distributive Conditional Types
+
+When a conditional type receives a union, it distributes over each member:
+
+```typescript
+type ToArray<T> = T extends any ? T[] : never;
+
+type Result = ToArray<string | number>;
+// = string[] | number[]  (distributes, not (string | number)[])
+
+// To prevent distribution, wrap in a tuple:
+type NonDistributive<T> = [T] extends [any] ? T[] : never;
+type Result2 = NonDistributive<string | number>;
+// = (string | number)[]
+```
+
+### Template Literal Types
+
+```typescript
+type EventName = "click" | "focus" | "blur";
+type HandlerName = `on${Capitalize<EventName>}`;
+// "onClick" | "onFocus" | "onBlur"
+
+// Build typed CSS property names
+type CSSProp = "margin" | "padding";
+type CSSDir = "Top" | "Right" | "Bottom" | "Left";
+type CSSExpanded = `${CSSProp}${CSSDir}`;
+// "marginTop" | "marginRight" | ... | "paddingLeft"
+
+// Extract path segments from route strings
+type Routes = "/users" | "/users/:id" | "/posts/:slug/comments";
+type DynamicRoutes = Extract<Routes, `${string}:${string}`>;
+// "/users/:id" | "/posts/:slug/comments"
+```
+
 ## Key Details
 
 - TypeScript checks compile-time possibilities; it does not prove runtime data is valid.
@@ -518,15 +600,15 @@ track("purchase", { userId: "u1" });
 - Preparing for TypeScript, React, Next.js, Node.js, or frontend platform interviews.
 - Designing safer API clients, UI state machines, event systems, and shared libraries.
 - Refactoring JavaScript code with more confidence.
-- Reviewing before [[React Interview]], [[Next.js Interview Questions]], [[GraphQL]], and [[Frontend Testing]].
+- Reviewing before [[react]], [[nextjs]], [[graphql]], and [[overview]].
 
 ## Related Topics
 
-- [[js-interview|JS Interview]] - TypeScript builds directly on JavaScript runtime behavior.
-- [[React Interview]] - React props, hooks, reducers, and state variants benefit from strong TypeScript modeling.
-- [[Next.js Interview Questions]] - Next.js projects commonly use TypeScript across server and client components.
-- [[GraphQL]] - Schema code generation maps GraphQL operations to TypeScript types.
-- [[Frontend Testing]] - Type-safe test helpers and mocks reduce brittle test setup.
+- [[javascript]] - TypeScript builds directly on JavaScript runtime behavior.
+- [[react]] - React props, hooks, reducers, and state variants benefit from strong TypeScript modeling.
+- [[nextjs]] - Next.js projects commonly use TypeScript across server and client components.
+- [[graphql]] - Schema code generation maps GraphQL operations to TypeScript types.
+- [[overview]] - Type-safe test helpers and mocks reduce brittle test setup.
 - [[Testing with Vitest and Jest]] - Test runners often need TypeScript-aware configuration.
 
 ## External Links

@@ -1250,6 +1250,54 @@ export function tracingMiddleware(req: any, res: any, next: any) {
 
 **Tools:** OpenTelemetry (standard), Jaeger, Zipkin, AWS X-Ray
 
+### OpenTelemetry SDK (Node.js)
+
+The OpenTelemetry SDK auto-instruments popular libraries (Express, HTTP, pg, Redis) and exports traces to any backend (Jaeger, Zipkin, AWS X-Ray, Datadog).
+
+```typescript
+// tracing.ts — import BEFORE anything else (instrument first)
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
+import { Resource } from "@opentelemetry/resources";
+import { SEMRESATTRS_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+
+const sdk = new NodeSDK({
+  resource: new Resource({ [SEMRESATTRS_SERVICE_NAME]: "order-service" }),
+  traceExporter: new OTLPTraceExporter({ url: "http://otel-collector:4318/v1/traces" }),
+  instrumentations: [getNodeAutoInstrumentations()],
+});
+
+sdk.start();
+process.on("SIGTERM", () => sdk.shutdown());
+```
+
+```typescript
+// Manual spans for business logic
+import { trace, SpanStatusCode } from "@opentelemetry/api";
+
+const tracer = trace.getTracer("order-service");
+
+async function processPayment(orderId: string, amount: number) {
+  return tracer.startActiveSpan("payment.process", async (span) => {
+    span.setAttributes({ "order.id": orderId, "payment.amount": amount });
+    try {
+      const result = await chargeCard(amount);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (err) {
+      span.recordException(err as Error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: (err as Error).message });
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
+}
+```
+
+OTel context propagation happens automatically via HTTP headers (`traceparent`) when using auto-instrumentation — all downstream service calls carry the same trace ID.
+
 ### Centralized Logging
 
 Aggregate logs from all services into a single searchable store.
@@ -1422,16 +1470,16 @@ graph LR
 ## Related Topics
 
 - [[REST APIs]] — synchronous HTTP communication between services
-- [[GraphQL]] — alternative API paradigm, useful for BFF aggregation
+- [[graphql]] — alternative API paradigm, useful for BFF aggregation
 - [[WebSockets]] — real-time bidirectional communication
-- [[Server-Sent Events]] — server-to-client streaming for live updates
+- [[sse]] — server-to-client streaming for live updates
 - [[SQL Databases]] — database per service pattern
-- [[NoSQL Databases]] — polyglot persistence across services
+- [[nosql]] — polyglot persistence across services
 - [[External Authentication Providers]] — OAuth 2.0, OIDC, IAM services
-- [[Cloud Compute Options]] — deployment targets for microservices (containers, serverless)
-- [[Cloud Networking VPC]] — network isolation and security for microservice communication
-- [[Cloud Infrastructure Components]] — load balancers, service mesh, and CDN for microservices
-- [[Cloud Cost Optimization]] — cost considerations when scaling microservices
+- [[compute]] — deployment targets for microservices (containers, serverless)
+- [[vpc]] — network isolation and security for microservice communication
+- [[infrastructure]] — load balancers, service mesh, and CDN for microservices
+- [[cost]] — cost considerations when scaling microservices
 
 ## External Links
 

@@ -11,7 +11,7 @@ tags:
 prerequisites:
   - "[[HTTP]]"
   - "[[TCP]]"
-  - "[[server-sent-events]]"
+  - "[[sse]]"
 date: 2026-04-29
 updated: 2026-06-14
 ---
@@ -382,30 +382,59 @@ server.listen(443);
 > - Use connection pooling and efficient serialization (MessagePack, Protocol Buffers)
 
 > [!warning] No Built-in Reconnection
-> Unlike SSE, WebSockets do NOT auto-reconnect. You must implement reconnection logic manually with exponential backoff:
+> Unlike SSE, WebSockets do NOT auto-reconnect. You must implement reconnection logic manually with exponential backoff + jitter:
 
-```javascript
-function connectWithRetry(url, maxRetries = 5) {
+```typescript
+interface WsOptions {
+  maxRetries?: number;
+  onMessage?: (data: string) => void;
+}
+
+function createReconnectingWs(url: string, opts: WsOptions = {}) {
+  const { maxRetries = 10, onMessage } = opts;
   let retries = 0;
-  
+  let ws: WebSocket;
+  let heartbeatTimer: ReturnType<typeof setInterval>;
+
   function connect() {
-    const ws = new WebSocket(url);
-    
+    ws = new WebSocket(url);
+
+    ws.onopen = () => {
+      retries = 0;
+      startHeartbeat();
+    };
+
+    ws.onmessage = (e) => {
+      if (e.data === "pong") return; // heartbeat reply
+      onMessage?.(e.data);
+    };
+
     ws.onclose = () => {
+      clearInterval(heartbeatTimer);
       if (retries < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, retries), 30000);
-        console.log(`Reconnecting in ${delay}ms...`);
-        setTimeout(connect, delay);
+        // Exponential backoff with full jitter: delay = random(0, min(cap, base * 2^n))
+        const base = Math.min(30000, 500 * Math.pow(2, retries));
+        const jitter = Math.random() * base;
         retries++;
+        setTimeout(connect, jitter);
       }
     };
-    
-    return ws;
   }
-  
-  return connect();
+
+  function startHeartbeat() {
+    heartbeatTimer = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send("ping");
+      }
+    }, 25_000); // below typical 30s proxy idle timeout
+  }
+
+  connect();
+  return { close: () => ws.close() };
 }
 ```
+
+**Why jitter?** Pure exponential backoff causes a thundering herd when many clients disconnect simultaneously (e.g., server restart). Jitter spreads reconnect attempts across the window, reducing server spike load.
 
 ## Production Checklist
 
@@ -428,7 +457,7 @@ function connectWithRetry(url, maxRetries = 5) {
 
 ## When NOT to Use
 
-- **Server-to-client only updates** (use [[server-sent-events]] — simpler, auto-reconnect)
+- **Server-to-client only updates** (use [[sse]] — simpler, auto-reconnect)
 - **Infrequent updates** (use HTTP requests or long polling)
 - **When firewalls block non-HTTP traffic** (fall back to SSE or polling)
 - **Simple notification systems** (SSE is easier to implement and debug)
@@ -437,7 +466,7 @@ function connectWithRetry(url, maxRetries = 5) {
 
 - [[HTTP]] — WebSockets start with an HTTP upgrade handshake
 - [[TCP]] — WebSockets run over a persistent TCP connection
-- [[server-sent-events]] — Simpler alternative for server-to-client push
+- [[sse]] — Simpler alternative for server-to-client push
 - [[HTTP/2]] — Server push and multiplexing as alternatives to WebSockets
 - [[WebRTC]] — Real-time peer-to-peer audio/video/data communication
 
@@ -451,4 +480,4 @@ function connectWithRetry(url, maxRetries = 5) {
 - [websockets library (Python)](https://websockets.readthedocs.io/)
 
 
-- [[Microservices Architecture]] — real-time communication patterns in distributed systems
+- [[microservices]] — real-time communication patterns in distributed systems

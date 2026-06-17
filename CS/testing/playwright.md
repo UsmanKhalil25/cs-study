@@ -10,7 +10,7 @@ tags:
   - typescript
   - automation
 prerequisites:
-  - "[[Frontend Testing]]"
+  - "[[overview]]"
   - "[[Web Development]]"
 date: 2026-04-29
 updated: 2026-06-14
@@ -979,6 +979,91 @@ npx playwright test --grep-invert "@skip"
 > [!warning] Avoid `.only()` in Committed Code
 > Use `forbidOnly: !!process.env.CI` to catch accidental `.only()` calls that skip other tests.
 
+## Mobile & Responsive Testing
+
+Playwright ships with device descriptors that emulate real mobile viewports, user agents, and touch behavior.
+
+### Device Emulation in Config
+
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  projects: [
+    { name: "Desktop Chrome", use: { ...devices["Desktop Chrome"] } },
+    { name: "Desktop Safari", use: { ...devices["Desktop Safari"] } },
+    { name: "Mobile Chrome", use: { ...devices["Pixel 5"] } },
+    { name: "Mobile Safari", use: { ...devices["iPhone 14"] } },
+    { name: "Tablet", use: { ...devices["iPad Pro 11"] } },
+  ],
+});
+```
+
+### Writing Mobile-Aware Tests
+
+```typescript
+import { test, expect, devices } from "@playwright/test";
+
+// Test a specific device in a single test file
+test.use({ ...devices["iPhone 14"] });
+
+test("hamburger menu opens on mobile", async ({ page }) => {
+  await page.goto("/");
+
+  // Desktop nav should be hidden
+  await expect(page.getByRole("navigation", { name: "Desktop nav" })).not.toBeVisible();
+
+  // Open hamburger menu
+  await page.getByRole("button", { name: "Open menu" }).tap(); // use .tap() for touch
+  await expect(page.getByRole("navigation", { name: "Mobile nav" })).toBeVisible();
+});
+
+test("responsive image loads correct size", async ({ page }) => {
+  await page.goto("/products/123");
+  const img = page.getByRole("img", { name: "Product photo" });
+
+  // Verify srcset is rendering the mobile-appropriate size
+  const naturalWidth = await img.evaluate((el: HTMLImageElement) => el.naturalWidth);
+  expect(naturalWidth).toBeLessThan(600); // mobile gets the small variant
+});
+
+test("form is usable on small viewport", async ({ page }) => {
+  // Custom viewport override
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/checkout");
+
+  // Inputs should be visible and not overlapping
+  const emailInput = page.getByLabel("Email");
+  await expect(emailInput).toBeVisible();
+  await expect(emailInput).toBeInViewport();
+  await emailInput.fill("test@example.com");
+});
+```
+
+### Touch Gestures
+
+```typescript
+// Swipe gesture (e.g., carousel navigation)
+test("swipe navigates carousel", async ({ page }) => {
+  await page.goto("/gallery");
+  const carousel = page.locator('[data-testid="carousel"]');
+  const box = await carousel.boundingBox();
+
+  if (box) {
+    await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height / 2);
+    await page.mouse.move(box.x + box.width * 0.8, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height / 2, { steps: 10 });
+    await page.mouse.up();
+  }
+
+  await expect(page.locator('[data-testid="slide-2"]')).toBeVisible();
+});
+```
+
+**Run only mobile tests:** `npx playwright test --project="Mobile Chrome" --project="Mobile Safari"`
+
 ## When to Use
 
 - **POM:** When multiple tests interact with the same page or feature
@@ -991,7 +1076,7 @@ npx playwright test --grep-invert "@skip"
 
 ## Related Topics
 
-- [[Frontend Testing]] — Testing pyramid, unit/integration testing, CI/CD pipeline
+- [[overview]] — Testing pyramid, unit/integration testing, CI/CD pipeline
 - [[Web Development]] — Frontend architecture and component patterns
 
 ## External Links

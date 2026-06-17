@@ -14,8 +14,8 @@ tags:
   - gcp
   - system-design
 prerequisites:
-  - "[[Cloud Networking VPC]]"
-  - "[[Cloud Compute Options]]"
+  - "[[vpc]]"
+  - "[[compute]]"
 date: 2026-04-29
 updated: 2026-06-14
 ---
@@ -592,6 +592,59 @@ sequenceDiagram
 > - Implement least-privilege IAM policies for every component
 > - Test failover scenarios regularly — don't assume DR works until you've tested it
 
+## Troubleshooting Guide
+
+Common production failures and how to diagnose them.
+
+### Load Balancer — 502/503/504 Errors
+
+| Error | Meaning | Common Cause | Fix |
+|---|---|---|---|
+| **502 Bad Gateway** | Target sent invalid response | App crashed or returned non-HTTP | Check target health checks; look at app logs |
+| **503 Service Unavailable** | No healthy targets | All instances unhealthy or draining | Check health check path (`/health`); verify security group allows ALB → app port |
+| **504 Gateway Timeout** | Target didn't respond in time | App too slow, blocking I/O, DB query | Increase ALB idle timeout; check slow query logs |
+
+```bash
+# Check ECS service events for failed task launches
+aws ecs describe-services --cluster prod --services api-service \
+  --query 'services[0].events[:10]'
+
+# Check ALB target health
+aws elbv2 describe-target-health --target-group-arn <arn>
+```
+
+### CDN Cache Misses / Stale Content
+
+```bash
+# Check CloudFront cache hit rate in CloudWatch
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/CloudFront \
+  --metric-name CacheHitRate \
+  --dimensions Name=DistributionId,Value=<id> \
+  --period 3600 --statistics Average \
+  --start-time 2024-01-01T00:00:00Z --end-time 2024-01-02T00:00:00Z
+```
+
+**Common causes:**
+- Missing `Cache-Control` headers on origin responses → CDN defaults to no-cache
+- Query strings vary (CloudFront may use them to distinguish cache keys — configure whitelist)
+- `Authorization` header present → CDN bypasses cache by default
+
+### Secrets Manager — Access Denied
+
+```bash
+# Check the resource policy on the secret
+aws secretsmanager get-resource-policy --secret-id /prod/db-password
+
+# Check if ECS task role has the right IAM permissions
+aws iam simulate-principal-policy \
+  --policy-source-arn <task-role-arn> \
+  --action-names secretsmanager:GetSecretValue \
+  --resource-arns <secret-arn>
+```
+
+Ensure the ECS task role (not the ECS execution role) has `secretsmanager:GetSecretValue` permission on the specific secret ARN or `*` in the secret's path.
+
 ## When to Use
 
 - **System design interviews** — selecting the right infrastructure components for architecture
@@ -601,11 +654,11 @@ sequenceDiagram
 
 ## Related Topics
 
-- [[Cloud Networking VPC]] — load balancers and DNS operate within VPC networking
-- [[Cloud Compute Options]] — infrastructure components route traffic to compute resources
-- [[AWS Basics]] — ECS, EC2, RDS, S3, Secrets Manager, and common AWS deployment shape
-- [[Microservices Architecture]] — load balancers and API gateways are essential for microservices
-- [[Cloud Cost Optimization]] — CDN caching, right-sizing, and storage class selection reduce costs
+- [[vpc]] — load balancers and DNS operate within VPC networking
+- [[compute]] — infrastructure components route traffic to compute resources
+- [[aws]] — ECS, EC2, RDS, S3, Secrets Manager, and common AWS deployment shape
+- [[microservices]] — load balancers and API gateways are essential for microservices
+- [[cost]] — CDN caching, right-sizing, and storage class selection reduce costs
 
 ## External Links
 

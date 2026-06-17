@@ -10,7 +10,7 @@ tags:
   - web
 prerequisites:
   - "[[HTTP]]"
-  - "[[js-interview|JavaScript]]"
+  - "[[javascript]]"
 date: 2026-04-29
 updated: 2026-06-17
 ---
@@ -258,6 +258,61 @@ while (true) {
 > [!tip] Keep-Alive Heartbeats
 > Proxies and load balancers may drop idle connections. Send comment heartbeats (`: heartbeat\n\n`) every 15-30 seconds to keep the connection alive.
 
+## Backpressure Handling
+
+Backpressure occurs when the server produces events faster than a slow client can consume them. Without handling it, memory grows unbounded until the server OOMs.
+
+### Node.js Streams + `drain` Event
+
+```typescript
+import express, { Request, Response } from "express";
+import { EventEmitter } from "events";
+
+const app = express();
+const emitter = new EventEmitter();
+
+app.get("/events", (req: Request, res: Response) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  let isPaused = false;
+
+  // Listen for events from the emitter
+  function onEvent(payload: object) {
+    const data = `data: ${JSON.stringify(payload)}\n\n`;
+
+    if (!res.write(data)) {
+      // write() returned false — TCP send buffer is full
+      isPaused = true;
+      emitter.removeListener("event", onEvent); // stop accepting new events
+    }
+  }
+
+  // Resume when the buffer drains
+  res.once("drain", () => {
+    if (isPaused) {
+      isPaused = false;
+      emitter.on("event", onEvent); // re-subscribe
+    }
+  });
+
+  emitter.on("event", onEvent);
+
+  req.on("close", () => {
+    emitter.removeListener("event", onEvent);
+  });
+});
+
+// Emit an event every second
+setInterval(() => emitter.emit("event", { time: Date.now() }), 1000);
+
+app.listen(3000);
+```
+
+**Alternative strategy:** instead of pausing emission, drop or coalesce low-priority events for slow clients — keep only the latest value per key (like a dashboard metric), which clients will re-read on reconnect anyway.
+
 ## Production Checklist
 
 - Disable reverse-proxy buffering and compression that waits for large chunks.
@@ -298,4 +353,4 @@ while (true) {
 - [EventSource Polyfill](https://github.com/Yaffle/EventSource)
 
 
-- [[Microservices Architecture]] — server-to-client streaming in distributed architectures
+- [[microservices]] — server-to-client streaming in distributed architectures

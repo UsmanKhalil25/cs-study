@@ -10,14 +10,14 @@ tags:
   - web-development
   - javascript
 prerequisites:
-  - "[[React Interview]]"
-  - "[[js-interview|JavaScript]]"
+  - "[[react]]"
+  - "[[javascript]]"
   - "[[web-basics]]"
 date: 2026-04-29
 updated: 2026-06-17
 ---
 
-# Next.js Interview Questions
+# Next.js
 
 ## Overview
 
@@ -584,6 +584,111 @@ export default function Page() {
 > [!info] App Router vs Pages Router
 > Both routers can coexist in the same project. The `app/` directory takes precedence for matching routes. Use this to migrate incrementally rather than all at once.
 
+## Performance APIs
+
+### `next/image` — Image Optimization
+
+```tsx
+import Image from "next/image";
+
+// Local image (width/height inferred from import)
+import heroImg from "@/public/hero.jpg";
+
+export function Hero() {
+  return (
+    <Image
+      src={heroImg}
+      alt="Hero banner"
+      priority          // preload — use for above-the-fold images
+      placeholder="blur" // shows blurred version while loading
+      quality={80}      // default 75; trade size for clarity
+      className="w-full object-cover"
+    />
+  );
+}
+
+// Remote image — must configure remotePatterns in next.config.ts
+export function Avatar({ url }: { url: string }) {
+  return (
+    <Image
+      src={url}
+      alt="User avatar"
+      width={40}
+      height={40}
+      sizes="40px" // helps browser pick the right srcset entry
+    />
+  );
+}
+```
+
+```ts
+// next.config.ts
+const config = {
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "cdn.example.com" }],
+    formats: ["image/avif", "image/webp"], // serve AVIF first, WebP fallback
+  },
+};
+```
+
+**Key behaviors:** serves WebP/AVIF automatically, generates `srcset` for different viewports, prevents CLS by requiring dimensions, lazy loads by default (use `priority` to opt out for LCP images).
+
+### `next/font` — Zero-Layout-Shift Fonts
+
+```tsx
+// app/layout.tsx
+import { Inter, Fira_Code } from "next/font/google";
+import localFont from "next/font/local";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter", // expose as CSS variable
+  display: "swap",
+});
+
+const mono = Fira_Code({ subsets: ["latin"], weight: ["400", "500"] });
+
+// Custom/self-hosted font
+const brand = localFont({
+  src: [
+    { path: "../fonts/Brand-Regular.woff2", weight: "400" },
+    { path: "../fonts/Brand-Bold.woff2", weight: "700" },
+  ],
+  variable: "--font-brand",
+});
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={`${inter.variable} ${brand.variable}`}>
+      <body className={inter.className}>{children}</body>
+    </html>
+  );
+}
+```
+
+**Why `next/font`:** downloads and self-hosts fonts at build time, adds `font-display: swap` automatically, eliminates the external Google Fonts network request on every page load — zero layout shift, faster FCP.
+
+### Metadata API (App Router)
+
+```tsx
+// Static metadata
+export const metadata: Metadata = {
+  title: "My App",
+  description: "Description for SEO",
+  openGraph: { title: "My App", images: ["/og.png"] },
+};
+
+// Dynamic metadata
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const post = await fetchPost(params.id);
+  return {
+    title: post.title,
+    description: post.excerpt,
+    openGraph: { images: [post.coverImage] },
+  };
+}
+```
+
 ## When to Use
 
 - **Content-heavy sites** (blogs, docs, marketing) — SSG/ISR for fast, cacheable pages
@@ -594,12 +699,12 @@ export default function Page() {
 
 ## Related Topics
 
-- [[React Interview]] — Next.js is built on React; Server Components extend React's component model
-- [[js-interview|JavaScript]] — Foundation for understanding Next.js runtime and Edge API
+- [[react]] — Next.js is built on React; Server Components extend React's component model
+- [[javascript]] — Foundation for understanding Next.js runtime and Edge API
 - [[web-basics]] — HTTP, caching, and rendering fundamentals that Next.js builds upon
 - [[graphql]] — Alternative data fetching pattern usable with Next.js API routes
-- [[microservices-architecture]] — Next.js can serve as a BFF (Backend-for-Frontend) layer
-- [[frontend-testing]] — Testing strategies for Server and Client Components
+- [[microservices]] — Next.js can serve as a BFF (Backend-for-Frontend) layer
+- [[overview]] — Testing strategies for Server and Client Components
 
 ## External Links
 

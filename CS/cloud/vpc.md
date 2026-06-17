@@ -501,6 +501,53 @@ graph LR
 > - Tag all networking resources for cost tracking and management
 > - Use VPC Flow Logs for network traffic analysis and troubleshooting
 
+## Code Examples
+
+### AWS CDK — VPC + Security Groups (TypeScript)
+
+```typescript
+import * as cdk from "aws-cdk-lib";
+import * as ec2 from "aws-cdk-lib/aws-ec2";
+
+export class NetworkStack extends cdk.Stack {
+  public readonly vpc: ec2.Vpc;
+  public readonly appSg: ec2.SecurityGroup;
+  public readonly dbSg: ec2.SecurityGroup;
+
+  constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // VPC with public + private subnets across 2 AZs
+    this.vpc = new ec2.Vpc(this, "AppVpc", {
+      maxAzs: 2,
+      ipAddresses: ec2.IpAddresses.cidr("10.0.0.0/16"),
+      subnetConfiguration: [
+        { name: "Public", subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+        { name: "Private", subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS, cidrMask: 24 },
+        { name: "Isolated", subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 28 },
+      ],
+    });
+
+    // App tier security group — accepts HTTPS from the internet
+    this.appSg = new ec2.SecurityGroup(this, "AppSg", {
+      vpc: this.vpc,
+      description: "ECS app tier",
+    });
+    this.appSg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(443), "HTTPS from internet");
+
+    // DB tier security group — only accepts connections from the app SG
+    this.dbSg = new ec2.SecurityGroup(this, "DbSg", {
+      vpc: this.vpc,
+      description: "RDS database tier",
+    });
+    this.dbSg.addIngressRule(this.appSg, ec2.Port.tcp(5432), "PostgreSQL from app tier");
+    // No direct internet access — RDS sits in Isolated subnets
+  }
+}
+```
+
+**Key CDK pattern:** reference security groups by object (not IP) — `addIngressRule(this.appSg, ...)` — so the rule automatically uses the SG ID and updates if the SG changes.
+
 ## When to Use
 
 - **System design interviews** — designing network architecture for scalable applications
@@ -510,11 +557,11 @@ graph LR
 
 ## Related Topics
 
-- [[Cloud Compute Options]] — all compute resources run within VPCs
-- [[AWS Basics]] — EC2, ECS, RDS, load balancers, and security groups in a VPC context
-- [[Cloud Infrastructure Components]] — load balancers and DNS interact with VPC networking
-- [[Microservices Architecture]] — service mesh and inter-service communication depend on VPC configuration
-- [[Cloud Cost Optimization]] — NAT Gateway and cross-AZ data transfer are significant cost drivers
+- [[compute]] — all compute resources run within VPCs
+- [[aws]] — EC2, ECS, RDS, load balancers, and security groups in a VPC context
+- [[infrastructure]] — load balancers and DNS interact with VPC networking
+- [[microservices]] — service mesh and inter-service communication depend on VPC configuration
+- [[cost]] — NAT Gateway and cross-AZ data transfer are significant cost drivers
 
 ## External Links
 

@@ -11,8 +11,8 @@ tags:
   - rds
   - system-design
 prerequisites:
-  - "[[Cloud Networking VPC]]"
-  - "[[Cloud Compute Options]]"
+  - "[[vpc]]"
+  - "[[compute]]"
 date: 2026-06-14
 updated: 2026-06-14
 ---
@@ -144,6 +144,92 @@ flowchart TD
 
 This shape is the AWS equivalent of many Docker-to-managed-container deployments: build an image, push it to a registry, deploy it to a managed container service, route traffic through a load balancer, and connect to managed data/secrets services.
 
+## Code Examples
+
+### Fetch a Secret (TypeScript)
+
+```typescript
+import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+
+const client = new SecretsManagerClient({ region: "us-east-1" });
+
+async function getSecret(secretName: string): Promise<string> {
+  const response = await client.send(
+    new GetSecretValueCommand({ SecretId: secretName })
+  );
+  return response.SecretString ?? "";
+}
+```
+
+### Upload to S3 (TypeScript)
+
+```typescript
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const s3 = new S3Client({ region: "us-east-1" });
+
+async function uploadFile(bucket: string, key: string, body: Buffer): Promise<void> {
+  await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }));
+}
+
+async function getPresignedUrl(bucket: string, key: string): Promise<string> {
+  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
+    expiresIn: 3600,
+  });
+}
+```
+
+### Run an ECS Task (TypeScript)
+
+```typescript
+import { ECSClient, RunTaskCommand } from "@aws-sdk/client-ecs";
+
+const ecs = new ECSClient({ region: "us-east-1" });
+
+async function runMigration(cluster: string, taskDef: string, subnet: string): Promise<void> {
+  await ecs.send(new RunTaskCommand({
+    cluster,
+    taskDefinition: taskDef,
+    launchType: "FARGATE",
+    networkConfiguration: {
+      awsvpcConfiguration: {
+        subnets: [subnet],
+        assignPublicIp: "DISABLED",
+      },
+    },
+    overrides: {
+      containerOverrides: [{ name: "app", command: ["node", "migrate.js"] }],
+    },
+  }));
+}
+```
+
+### EC2 Instance Types — Quick Reference
+
+| Family | Use Case | Examples |
+|--------|----------|---------|
+| `t4g` / `t3` | Dev/test, burstable workloads | `t3.micro`, `t4g.small` |
+| `m7g` / `m6i` | General-purpose production | `m6i.xlarge`, `m7g.2xlarge` |
+| `c7g` / `c6i` | CPU-intensive (encoding, API) | `c6i.2xlarge` |
+| `r7g` / `r6i` | Memory-intensive (Redis, caches) | `r6i.large` |
+| `p4d` / `g5` | ML training, GPU workloads | `g5.xlarge` |
+
+**Graviton (`g`/`a` suffix)** — ARM-based, ~20% cheaper for same performance. Use for new greenfield services.
+
+### S3 Storage Classes
+
+| Class | Retrieval | Cost | Use For |
+|-------|-----------|------|---------|
+| Standard | Instant | High | Active assets, CDN origin |
+| Intelligent-Tiering | Instant | Auto-optimized | Unknown access patterns |
+| Standard-IA | Instant | Lower | Backups, infrequent reads |
+| Glacier Instant | Instant | Low | Archives with rare access |
+| Glacier Flexible | Minutes–hours | Very low | Long-term cold archives |
+| Deep Archive | Hours | Lowest | Compliance retention |
+
+Set lifecycle rules to automatically transition objects: `Standard → Standard-IA (30d) → Glacier (90d)`.
+
 ## When to Use
 
 - **EC2** when you need OS-level control, long-running stable capacity, custom networking/agents, or legacy deployment patterns.
@@ -155,11 +241,11 @@ This shape is the AWS equivalent of many Docker-to-managed-container deployments
 
 ## Related Topics
 
-- [[Cloud Compute Options]] — VM, container, and serverless compute tradeoffs
-- [[Cloud Networking VPC]] — VPC, subnets, gateways, route tables, security groups
-- [[Cloud Infrastructure Components]] — load balancers, CDN, DNS, object storage, secrets
-- [[Database Architecture]] — managed databases, replicas, backups, and pooling
-- [[Cloud Cost Optimization]] — pricing models, right-sizing, and cost traps
+- [[compute]] — VM, container, and serverless compute tradeoffs
+- [[vpc]] — VPC, subnets, gateways, route tables, security groups
+- [[infrastructure]] — load balancers, CDN, DNS, object storage, secrets
+- [[architecture]] — managed databases, replicas, backups, and pooling
+- [[cost]] — pricing models, right-sizing, and cost traps
 
 ## External Links
 

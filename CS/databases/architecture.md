@@ -14,7 +14,7 @@ tags:
   - system-design
 prerequisites:
   - "[[SQL vs NoSQL Databases]]"
-  - "[[Cloud Networking VPC]]"
+  - "[[vpc]]"
 date: 2026-04-29
 updated: 2026-06-14
 ---
@@ -486,6 +486,64 @@ graph TD
 > - Use parameter groups to tune database settings for your workload
 > - Encrypt databases at rest and in transit
 
+## Connection Pool Exhaustion — Troubleshooting
+
+Connection pool exhaustion is one of the most common production database incidents. Symptoms: `too many connections` errors, slow queries that time out waiting for a connection, cascading service failures.
+
+### Diagnosis
+
+```sql
+-- PostgreSQL: see current connections by state and client
+SELECT client_addr, state, COUNT(*) as count, wait_event_type, wait_event
+FROM pg_stat_activity
+GROUP BY client_addr, state, wait_event_type, wait_event
+ORDER BY count DESC;
+
+-- See max allowed connections
+SHOW max_connections;
+
+-- Current active vs idle
+SELECT state, count(*) FROM pg_stat_activity GROUP BY state;
+```
+
+### Common Causes and Fixes
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| Many `idle` connections | App not returning connections to pool | Verify `pool.release()` or use `async using` |
+| Many `idle in transaction` | Long transactions left open | Set `statement_timeout` / `idle_in_transaction_session_timeout` |
+| Spike on deploy/startup | All instances connect simultaneously | Add connection delay jitter at app startup |
+| Steady climb over time | Connection leak (acquired, never released) | Add connection pool logging; monitor `pool.waitingCount` |
+| Lambda exhausting connections | No pooler between Lambda and DB | Add RDS Proxy or PgBouncer in front of RDS |
+
+### PostgreSQL Limits to Set
+
+```sql
+-- Set in RDS parameter group or postgresql.conf
+-- Limit connections per role (prevent one service from taking all slots)
+ALTER ROLE app_user CONNECTION LIMIT 50;
+
+-- Kill idle-in-transaction sessions after 30s
+ALTER DATABASE mydb SET idle_in_transaction_session_timeout = '30s';
+
+-- Kill queries running longer than 60s
+ALTER DATABASE mydb SET statement_timeout = '60s';
+```
+
+### Topology: Read Replica + PgBouncer
+
+```mermaid
+flowchart LR
+    App --> PB[PgBouncer\ntransaction mode]
+    PB -->|writes| Primary[(Primary RDS)]
+    PB -->|reads| R1[(Read Replica 1)]
+    PB -->|reads| R2[(Read Replica 2)]
+    Primary -.->|async replication| R1
+    Primary -.->|async replication| R2
+```
+
+Route read-heavy queries to replicas using PgBouncer or application-level routing. Keep write connection count low to avoid primary bottleneck.
+
 ## When to Use
 
 - **System design interviews** — designing database architecture for scalable applications
@@ -496,11 +554,11 @@ graph TD
 ## Related Topics
 
 - [[SQL vs NoSQL Databases]] — database engine selection
-- [[Cloud Compute Options]] — database compute sizing and deployment
-- [[AWS Basics]] — RDS, EC2, ECS, and common AWS deployment primitives
-- [[Cloud Networking VPC]] — databases run in isolated subnets
-- [[Cloud Infrastructure Components]] — secrets management for database credentials
-- [[Cloud Cost Optimization]] — database cost optimization strategies
+- [[compute]] — database compute sizing and deployment
+- [[aws]] — RDS, EC2, ECS, and common AWS deployment primitives
+- [[vpc]] — databases run in isolated subnets
+- [[infrastructure]] — secrets management for database credentials
+- [[cost]] — database cost optimization strategies
 
 ## External Links
 

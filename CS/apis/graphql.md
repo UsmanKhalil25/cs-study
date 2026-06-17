@@ -774,6 +774,93 @@ flowchart TD
 
 **Microservices Aggregation:** Backend has separate services for Users, Orders, Products, and Reviews. GraphQL acts as a **BFF (Backend for Frontend)**, composing a unified schema that clients query as one graph.
 
+## Subscriptions (Real-Time)
+
+GraphQL subscriptions push server-initiated events to clients over a persistent WebSocket connection. The most common implementation uses `graphql-ws`.
+
+### Server Setup (Node.js + graphql-ws)
+
+```typescript
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/lib/use/ws";
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { PubSub } from "graphql-subscriptions";
+
+const pubsub = new PubSub();
+
+const schema = makeExecutableSchema({
+  typeDefs: `
+    type Post { id: ID! title: String! authorId: ID! }
+    type Query { posts: [Post!]! }
+    type Mutation { createPost(title: String!, authorId: ID!): Post! }
+    type Subscription { postCreated: Post! }
+  `,
+  resolvers: {
+    Mutation: {
+      createPost: async (_parent, { title, authorId }) => {
+        const post = { id: crypto.randomUUID(), title, authorId };
+        await pubsub.publish("POST_CREATED", { postCreated: post });
+        return post;
+      },
+    },
+    Subscription: {
+      postCreated: {
+        subscribe: () => pubsub.asyncIterator(["POST_CREATED"]),
+      },
+    },
+  },
+});
+
+const httpServer = createServer();
+const wsServer = new WebSocketServer({ server: httpServer, path: "/graphql" });
+useServer({ schema }, wsServer);
+httpServer.listen(4000);
+```
+
+### Client (React + Apollo)
+
+```typescript
+import { ApolloClient, InMemoryCache, split, HttpLink } from "@apollo/client";
+import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
+import { createClient } from "graphql-ws";
+import { getMainDefinition } from "@apollo/client/utilities";
+import { gql, useSubscription } from "@apollo/client";
+
+const wsLink = new GraphQLWsLink(createClient({ url: "ws://localhost:4000/graphql" }));
+const httpLink = new HttpLink({ uri: "http://localhost:4000/graphql" });
+
+const splitLink = split(
+  ({ query }) => {
+    const def = getMainDefinition(query);
+    return def.kind === "OperationDefinition" && def.operation === "subscription";
+  },
+  wsLink,
+  httpLink
+);
+
+const client = new ApolloClient({ link: splitLink, cache: new InMemoryCache() });
+
+// React component
+const POST_CREATED = gql`subscription { postCreated { id title } }`;
+
+function LiveFeed() {
+  const { data } = useSubscription(POST_CREATED);
+  return <div>{data?.postCreated?.title}</div>;
+}
+```
+
+### When to Use Subscriptions vs Polling vs SSE
+
+| | Subscriptions | Polling | SSE |
+|---|---|---|---|
+| **Latency** | Real-time | Delayed by interval | Real-time |
+| **Client overhead** | WebSocket connection | HTTP request per interval | One HTTP connection |
+| **Server complexity** | Pub/Sub required | Simple | Simple |
+| **Best for** | Chat, live collaboration, gaming | Infrequent updates, simple setup | Notifications, feeds, LLM streaming |
+
+**Production note:** `graphql-subscriptions` PubSub is in-process only (single server). Use Redis Pub/Sub (`graphql-redis-subscriptions`) or NATS for multi-instance deployments.
+
 ## Related Topics
 
 - [[External Authentication Providers]] — Firebase, Google, GitHub OAuth integration with GraphQL
@@ -783,10 +870,10 @@ flowchart TD
 - [[WebSockets]] — Used for GraphQL subscriptions
 - [[Caching Strategies]] — GraphQL requires different caching than REST
 - [[Authentication Patterns]] — JWT + context pattern for GraphQL auth
-- [[Microservices Architecture]] — GraphQL as API gateway/BFF pattern
+- [[microservices]] — GraphQL as API gateway/BFF pattern
 - [[N+1 Problem]] — Solved by DataLoader in GraphQL
 - [[Code Generation]] — graphql-codegen for type-safe clients
-- [[React Interview]] — React + GraphQL data fetching patterns (Apollo, urql)
+- [[react]] — React + GraphQL data fetching patterns (Apollo, urql)
 
 ## External Links
 
@@ -801,4 +888,4 @@ flowchart TD
 - [GraphQL Shield — Permission Layer](https://graphql-shield.vercel.app/)
 
 
-- [[Microservices Architecture]] — API gateway aggregation and BFF pattern using GraphQL federation
+- [[microservices]] — API gateway aggregation and BFF pattern using GraphQL federation

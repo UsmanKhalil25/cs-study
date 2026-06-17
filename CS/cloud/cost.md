@@ -12,10 +12,10 @@ tags:
   - serverless
   - containers
 prerequisites:
-  - "[[Cloud Compute Options]]"
-  - "[[Cloud Networking VPC]]"
-  - "[[Cloud Infrastructure Components]]"
-  - "[[Database Architecture]]"
+  - "[[compute]]"
+  - "[[vpc]]"
+  - "[[infrastructure]]"
+  - "[[architecture]]"
 date: 2026-04-29
 updated: 2026-06-14
 ---
@@ -471,6 +471,87 @@ graph TD
 > - [ ] Set up auto-scaling to match capacity with demand
 > - [ ] Review database instance sizes and storage monthly
 
+## Cost Alerting (AWS CloudWatch + Budgets)
+
+Set up automatic alerts before costs spiral — waiting for the monthly bill is too late.
+
+### AWS Budget Alert (TypeScript CDK)
+
+```typescript
+import * as budgets from "aws-cdk-lib/aws-budgets";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
+
+const alertTopic = new sns.Topic(this, "CostAlertTopic");
+alertTopic.addSubscription(new subscriptions.EmailSubscription("team@example.com"));
+
+new budgets.CfnBudget(this, "MonthlyBudget", {
+  budget: {
+    budgetName: "monthly-aws-budget",
+    budgetType: "COST",
+    timeUnit: "MONTHLY",
+    budgetLimit: { amount: 500, unit: "USD" },
+  },
+  notificationsWithSubscribers: [
+    {
+      notification: {
+        notificationType: "ACTUAL",
+        comparisonOperator: "GREATER_THAN",
+        threshold: 80, // alert at 80% of budget
+        thresholdType: "PERCENTAGE",
+      },
+      subscribers: [{ subscriptionType: "SNS", address: alertTopic.topicArn }],
+    },
+    {
+      notification: {
+        notificationType: "FORECASTED",
+        comparisonOperator: "GREATER_THAN",
+        threshold: 100, // alert if forecast exceeds budget
+        thresholdType: "PERCENTAGE",
+      },
+      subscribers: [{ subscriptionType: "SNS", address: alertTopic.topicArn }],
+    },
+  ],
+});
+```
+
+### CloudWatch Anomaly Detection Alarm
+
+```typescript
+import * as cloudwatch from "aws-cdk-lib/aws-cloudwatch";
+
+// Alert when daily spend deviates significantly from learned baseline
+const anomalyDetector = new cloudwatch.CfnAnomalyDetector(this, "CostAnomaly", {
+  metricName: "EstimatedCharges",
+  namespace: "AWS/Billing",
+  stat: "Maximum",
+});
+
+new cloudwatch.CfnAlarm(this, "CostAnomalyAlarm", {
+  alarmName: "daily-cost-anomaly",
+  comparisonOperator: "GreaterThanUpperThreshold",
+  evaluationPeriods: 1,
+  thresholdMetricId: "ad1",
+  metrics: [
+    {
+      id: "m1",
+      metricStat: {
+        metric: { namespace: "AWS/Billing", metricName: "EstimatedCharges" },
+        period: 86400, // daily
+        stat: "Maximum",
+      },
+    },
+    {
+      id: "ad1",
+      expression: "ANOMALY_DETECTION_BAND(m1, 2)", // 2 standard deviations
+    },
+  ],
+  alarmActions: [alertTopic.topicArn],
+});
+```
+
+**Best practice trifecta:** (1) Budget alerts at 80%/100% for absolute overspend, (2) anomaly detection for unexpected spikes, (3) per-service cost allocation tags to attribute spend to teams.
+
 ## When to Use
 
 - **System design interviews** — justifying architecture choices with cost considerations
@@ -480,12 +561,12 @@ graph TD
 
 ## Related Topics
 
-- [[Cloud Compute Options]] — compute cost models and pricing strategies
-- [[AWS Basics]] — core AWS services and the common deployment shape that drives cost
-- [[Cloud Networking VPC]] — NAT Gateway and cross-AZ data transfer costs
-- [[Cloud Infrastructure Components]] — CDN caching reduces origin costs
-- [[Database Architecture]] — managed vs self-hosted cost trade-offs
-- [[Microservices Architecture]] — infrastructure cost increases with service count
+- [[compute]] — compute cost models and pricing strategies
+- [[aws]] — core AWS services and the common deployment shape that drives cost
+- [[vpc]] — NAT Gateway and cross-AZ data transfer costs
+- [[infrastructure]] — CDN caching reduces origin costs
+- [[architecture]] — managed vs self-hosted cost trade-offs
+- [[microservices]] — infrastructure cost increases with service count
 
 ## External Links
 

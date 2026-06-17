@@ -784,7 +784,7 @@ sequenceDiagram
 
 ## Related Topics
 
-- [[Database Architecture]] — managed vs self-hosted, read replicas, connection pooling, backups
+- [[architecture]] — managed vs self-hosted, read replicas, connection pooling, backups
 - [[CAP Theorem]] — consistency, availability, partition tolerance tradeoffs
 - [[Database Indexing]] — B-tree, hash, GIN, and inverted indexes
 - [[Database Transactions]] — ACID properties, isolation levels

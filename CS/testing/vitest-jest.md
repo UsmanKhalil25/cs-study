@@ -9,7 +9,7 @@ tags:
   - jest
   - javascript
 prerequisites:
-  - "[[js-interview|JavaScript]]"
+  - "[[javascript]]"
 date: 2026-04-29
 updated: 2026-06-17
 ---
@@ -957,6 +957,73 @@ export default defineConfig({
 });
 ```
 
+## Contract Testing
+
+Contract testing verifies that a service provider (API) and its consumers agree on a shared contract — the request/response schema. Catches breaking API changes before they reach production.
+
+**Approaches:**
+- **Consumer-driven (Pact):** Consumer defines the expected contract; Pact verifies the provider fulfills it
+- **Schema-based (lightweight):** Validate response shape against a Zod/JSON Schema without a Pact broker
+
+### Schema-Based Contract Test (Vitest + Zod)
+
+```typescript
+// tests/contracts/user-api.contract.test.ts
+import { describe, it, expect } from "vitest";
+import { z } from "zod";
+
+// Define the contract — what the consumer expects
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1),
+  createdAt: z.string().datetime(),
+  role: z.enum(["admin", "user", "viewer"]),
+});
+
+const UserListSchema = z.object({
+  data: z.array(UserSchema),
+  total: z.number().int().nonneg(),
+  page: z.number().int().positive(),
+});
+
+describe("User API Contract", () => {
+  it("GET /users returns valid schema", async () => {
+    const response = await fetch("http://localhost:3000/users?page=1");
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    // Throws with detailed error if schema doesn't match
+    const parsed = UserListSchema.parse(body);
+    expect(parsed.data.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("GET /users/:id returns valid user or 404", async () => {
+    const response = await fetch("http://localhost:3000/users/non-existent-id");
+    expect([200, 404]).toContain(response.status);
+
+    if (response.status === 200) {
+      const body = await response.json();
+      UserSchema.parse(body); // validates schema
+    }
+  });
+
+  it("POST /users rejects missing required fields", async () => {
+    const response = await fetch("http://localhost:3000/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "not-an-email" }), // invalid
+    });
+    expect(response.status).toBe(400);
+
+    const body = await response.json();
+    expect(body).toHaveProperty("error");
+  });
+});
+```
+
+**Run contract tests in CI against a real running service (not mocked)** to catch actual provider drift. Wire them as a `test:contract` npm script that spins up the service before running.
+
 ## When to Use
 
 - **Unit tests**: Pure functions, business logic, data transformations, edge cases
@@ -969,7 +1036,7 @@ export default defineConfig({
 
 ## Related Topics
 
-- [[js-interview|JavaScript]] -- Language being tested
+- [[javascript]] -- Language being tested
 - [[HTTP]] -- API testing relies on HTTP protocol knowledge
 - [[websockets]] -- Real-time features that need specialized testing approaches
 

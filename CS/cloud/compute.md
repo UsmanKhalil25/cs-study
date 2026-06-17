@@ -13,7 +13,7 @@ tags:
   - system-design
   - cost-optimization
 prerequisites:
-  - "[[Microservices Architecture]]"
+  - "[[microservices]]"
 date: 2026-04-29
 updated: 2026-06-14
 ---
@@ -524,6 +524,41 @@ AWS Fargate is serverless for containers — you define container specs and pay 
 > [!info] Serverless ≠ No Servers
 > "Serverless" means you don't manage servers — they still exist. The cloud provider abstracts them away and handles provisioning, scaling, and maintenance.
 
+## Production Deployment Scenarios
+
+### SaaS Application — Compute Choices by Stage
+
+```mermaid
+flowchart LR
+    A["Stage 1: MVP\n< 100 users"] --> B["Stage 2: Growth\n100–10k users"]
+    B --> C["Stage 3: Scale\n10k–1M users"]
+
+    A1["Serverless\n(Lambda, Vercel, Cloud Run)\nZero infra management\nPay per request"] --> A
+    B1["Containers\n(ECS Fargate, GKE Autopilot)\nPredictable cost\nFull control of runtime"] --> B
+    C1["Containers + Reserved\nReserved capacity for\nbase load + spot for bursts\nMulti-region failover"] --> C
+```
+
+| Workload | Best Compute | Reason |
+|---|---|---|
+| REST API — variable traffic | ECS Fargate + ALB | Auto-scales, no idle cost, manages containers |
+| Background jobs / cron | Lambda or Fargate tasks | Runs on demand, zero idle cost |
+| Static site + CDN | S3 + CloudFront | Cheapest, globally cached |
+| ML inference | ECS on GPU instance | Lambda has 10GB memory limit, GPU not available |
+| Websocket server | ECS Fargate (persistent) | Lambda timeouts too short for long connections |
+| Data pipeline | AWS Batch / Fargate tasks | Jobs run to completion, no persistent idle containers |
+
+### Decision Tree: When Cold Start Matters
+
+**Lambda cold start is a problem when:**
+- API endpoints need P99 < 200ms consistently
+- Traffic is bursty (10 requests/min burst to 10k/min)
+- You use large runtimes (JVM, .NET — cold start can be 1–5s)
+
+**Cold start mitigations:**
+1. Provisioned Concurrency (keep N lambdas warm — ~$) 
+2. Shorter deployment packages (reduce init time)
+3. Switch to ECS/containers for low-latency SLAs
+
 ## When to Use
 
 - **System design interviews** — choosing compute for different architecture components
@@ -533,11 +568,11 @@ AWS Fargate is serverless for containers — you define container specs and pay 
 
 ## Related Topics
 
-- [[Microservices Architecture]] — containers are the standard deployment unit for microservices
-- [[AWS Basics]] — EC2, ECS, Fargate, RDS, and common AWS deployment shape
+- [[microservices]] — containers are the standard deployment unit for microservices
+- [[aws]] — EC2, ECS, Fargate, RDS, and common AWS deployment shape
 - [[SQL vs NoSQL Databases]] — database compute choices interact with application compute
-- [[Cloud Networking VPC]] — all compute options run within VPCs
-- [[Cloud Infrastructure Components]] — load balancers, CDN, and DNS work with all compute types
+- [[vpc]] — all compute options run within VPCs
+- [[infrastructure]] — load balancers, CDN, and DNS work with all compute types
 
 ## External Links
 

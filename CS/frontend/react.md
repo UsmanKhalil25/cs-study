@@ -9,13 +9,13 @@ tags:
   - interview-prep
   - frontend
 prerequisites:
-  - "[[js-interview|JavaScript]]"
+  - "[[javascript]]"
   - "[[DOM]]"
 date: 2026-04-29
 updated: 2026-06-17
 ---
 
-# React (Interview Prep)
+# React
 
 ## Overview
 
@@ -604,9 +604,9 @@ const AdminPanel = lazy(() => import('./AdminPanel'));
 
 ## Related Topics
 
-- [[frontend-testing]] — testing strategies for React and other frontend frameworks
+- [[overview]] — testing strategies for React and other frontend frameworks
 - [[graphql]] — data fetching layer commonly paired with React
-- [[js-interview|JavaScript]] — language fundamentals underpinning React
+- [[javascript]] — language fundamentals underpinning React
 - [[WebSockets]] — real-time data patterns in React apps
 - [[Virtual DOM]] — React's rendering optimization strategy
 

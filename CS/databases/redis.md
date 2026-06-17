@@ -181,6 +181,79 @@ with r.pipeline() as pipe:
 > [!info] Persistence Choice
 > Use RDB for disaster recovery (compact, fast restarts) and AOF for durability (minimal data loss). Running both provides the best of both worlds.
 
+## Eviction Policies
+
+| Policy | What Gets Evicted | Use When |
+|--------|------------------|----------|
+| `noeviction` | Nothing — writes fail when full | You need a durable store, not a cache |
+| `allkeys-lru` | Least recently used from all keys | Pure cache (evict cold entries automatically) |
+| `volatile-lru` | LRU from keys with TTL only | Mix of persistent + cached keys |
+| `allkeys-lfu` | Least frequently used from all keys | Skewed access patterns (some keys always hot) |
+| `volatile-ttl` | Keys with shortest remaining TTL | Want near-expired keys cleaned up first |
+| `allkeys-random` | Random from all keys | Uniform access pattern, fastest eviction |
+
+**Default:** `noeviction` — **change this for caches** to `allkeys-lru` or `allkeys-lfu`.
+
+## Redis Cluster
+
+Redis Cluster shards data across multiple primary nodes using consistent hashing (16384 hash slots). Use when a single Redis instance is memory- or throughput-constrained.
+
+### Docker Compose (3-primary / 3-replica cluster)
+
+```yaml
+# docker-compose.yml
+services:
+  redis-1: &redis-node
+    image: redis:7-alpine
+    command: redis-server --cluster-enabled yes --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000 --appendonly yes --port 6379
+    ports: ["6379:6379"]
+  redis-2:
+    <<: *redis-node
+    ports: ["6380:6379"]
+  redis-3:
+    <<: *redis-node
+    ports: ["6381:6379"]
+  redis-4:
+    <<: *redis-node
+    ports: ["6382:6379"]
+  redis-5:
+    <<: *redis-node
+    ports: ["6383:6379"]
+  redis-6:
+    <<: *redis-node
+    ports: ["6384:6379"]
+
+  cluster-init:
+    image: redis:7-alpine
+    depends_on: [redis-1, redis-2, redis-3, redis-4, redis-5, redis-6]
+    command: >
+      redis-cli --cluster create
+        redis-1:6379 redis-2:6379 redis-3:6379
+        redis-4:6379 redis-5:6379 redis-6:6379
+        --cluster-replicas 1 --cluster-yes
+```
+
+### TypeScript Client (ioredis Cluster)
+
+```typescript
+import { Cluster } from "ioredis";
+
+const cluster = new Cluster([
+  { host: "redis-1", port: 6379 },
+  { host: "redis-2", port: 6379 },
+  { host: "redis-3", port: 6379 },
+]);
+
+await cluster.set("user:123", JSON.stringify({ name: "Alice" }));
+const user = await cluster.get("user:123");
+```
+
+**Cluster limitations:**
+- Multi-key commands (`MGET`, `DEL`, pipelines) only work if all keys hash to the same slot
+- Use hash tags `{user:123}:profile` and `{user:123}:orders` to force co-location
+- No cross-slot transactions
+
 ## Operational Checklist
 
 - Track `used_memory`, eviction count, connected clients, replication lag, rejected connections, slowlog entries, and command latency percentiles.
@@ -204,7 +277,7 @@ with r.pipeline() as pipe:
 - [[Hash Tables]] — core underlying mechanism for Redis key lookups
 - [[Event Loop]] — Redis networking model using epoll/kqueue and single-threaded execution
 - [[CAP Theorem]] — Redis is typically AP; trades strong consistency for availability and partition tolerance
-- [[NoSQL Databases]] — Redis as a non-relational data store
+- [[nosql]] — Redis as a non-relational data store
 - [[Distributed Caching]] — broader architectural pattern Redis implements
 
 ## External Links

@@ -517,6 +517,66 @@ Client App → Connection Pool (PgBouncer, HikariCP) → Database Server
               Reduces connection overhead
 ```
 
+## Query Optimization
+
+### EXPLAIN ANALYZE
+
+`EXPLAIN ANALYZE` shows the actual query execution plan with real row counts and timings. Run it before adding indexes or rewriting slow queries.
+
+```sql
+EXPLAIN ANALYZE
+SELECT u.name, COUNT(o.id) AS order_count
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE u.created_at > '2024-01-01'
+GROUP BY u.id, u.name
+ORDER BY order_count DESC;
+```
+
+Sample output:
+```
+Sort  (cost=1842.33..1842.83 rows=200 width=40) (actual time=25.4..25.5 rows=200 loops=1)
+  ->  HashAggregate  (cost=1830.00..1832.00 rows=200 width=40) (actual time=25.1..25.2 rows=200 loops=1)
+        ->  Hash Left Join  (cost=115.00..1790.00 rows=8000 width=32) (actual time=1.2..22.1 rows=8000 loops=1)
+              Hash Cond: (o.user_id = u.id)
+              ->  Seq Scan on orders  (cost=0.00..1540.00 rows=8000 ...) (actual time=0.1..12.3 rows=80000)
+              ->  Hash  (cost=90.00..90.00 rows=2000 width=24) (actual time=1.0..1.0 rows=2000)
+                    ->  Seq Scan on users  (cost=0.00..90.00 rows=2000 ...)
+                          Filter: (created_at > '2024-01-01')
+Planning Time: 0.8 ms
+Execution Time: 25.7 ms
+```
+
+**How to read it:**
+- `Seq Scan` — full table scan, look to add an index
+- `Index Scan` — good, using an index
+- `Hash Join` / `Nested Loop` — join strategy; nested loop is slow if the inner side has many rows
+- `rows=N` — estimated vs actual; large discrepancy means stale statistics, run `ANALYZE`
+- High `cost` numbers on leaf nodes are the place to optimize first
+
+**Common fixes from EXPLAIN output:**
+
+| What You See | Fix |
+|---|---|
+| `Seq Scan` on large table with `WHERE` | Add index on the filter column |
+| `rows=1` estimated, `rows=10000` actual | Run `ANALYZE tablename` to refresh statistics |
+| `Nested Loop` with high loops | Switch to `Hash Join` via planner hints or rewrite |
+| Sort before result | Add index matching `ORDER BY` columns |
+| `Bitmap Heap Scan` with many pages | Index may have low selectivity; evaluate partial index |
+
+### Covering Indexes
+
+A covering index includes all columns a query needs, eliminating the heap fetch:
+
+```sql
+-- Query that benefits from covering index
+SELECT user_id, created_at, status FROM orders WHERE user_id = 42;
+
+-- Covering index includes all three columns
+CREATE INDEX idx_orders_user_covering ON orders (user_id, created_at, status);
+-- Now the query is served entirely from the index (Index Only Scan)
+```
+
 ## When to Use
 
 - **Financial systems** — ACID guarantees for banking, payments, accounting
@@ -552,11 +612,11 @@ Client App → Connection Pool (PgBouncer, HikariCP) → Database Server
 
 ## Related Topics
 
-- [[Database Architecture]] — managed vs self-hosted, read replicas, connection pooling, backups
+- [[architecture]] — managed vs self-hosted, read replicas, connection pooling, backups
 - [[Database Normalization]] — deeper dive into 1NF through BCNF with examples
 - [[Indexing Strategies]] — B-tree internals, covering indexes, index-only scans
 - [[CAP Theorem]] — tradeoffs in distributed databases
-- [[NoSQL Databases]] — when SQL isn't the right choice
+- [[nosql]] — when SQL isn't the right choice
 - [[Connection Pooling]] — PgBouncer, HikariCP, and connection management
 - [[Query Optimization]] — EXPLAIN ANALYZE, execution plans, cost-based optimizers
 - [[Sharding]] — horizontal scaling for SQL databases

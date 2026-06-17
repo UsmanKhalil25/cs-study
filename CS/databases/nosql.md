@@ -9,7 +9,7 @@ tags:
   - databases
   - distributed-systems
 prerequisites:
-  - "[[sql-databases]]"
+  - "[[sql]]"
 date: 2026-04-29
 updated: 2026-06-14
 ---
@@ -634,6 +634,95 @@ db.collection.find().readPref("secondary")
 > db.users.find({ status: "active" }, { name: 1, _id: 0 })  // Covered!
 > ```
 
+## DynamoDB (AWS)
+
+DynamoDB is a fully managed key-value and document database built for single-digit millisecond performance at any scale. Unlike MongoDB, you design your access patterns upfront and the schema bends to those patterns.
+
+### Core Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Table** | Top-level container — no joins across tables |
+| **Partition key (PK)** | Hash key that determines which partition stores the item |
+| **Sort key (SK)** | Optional range key that enables range queries within a partition |
+| **GSI** | Global Secondary Index — alternate PK/SK pairs, eventual consistency |
+| **LSI** | Local Secondary Index — alternate SK on same PK, strongly consistent |
+| **Capacity modes** | On-demand (pay per request) or provisioned (set RCU/WCU) |
+
+### Single-Table Design
+
+One table holds multiple entity types, distinguished by the PK/SK pattern. Eliminates joins and scales horizontally.
+
+```typescript
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+
+const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: "us-east-1" }));
+const TABLE = "AppTable";
+
+// Write a user
+await client.send(new PutCommand({
+  TableName: TABLE,
+  Item: { PK: "USER#user123", SK: "PROFILE", name: "Alice", email: "alice@example.com" },
+}));
+
+// Write an order for that user
+await client.send(new PutCommand({
+  TableName: TABLE,
+  Item: { PK: "USER#user123", SK: "ORDER#2024-01-15#ord999", total: 59.99, status: "shipped" },
+}));
+
+// Fetch all orders for a user (range query on SK)
+const result = await client.send(new QueryCommand({
+  TableName: TABLE,
+  KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+  ExpressionAttributeValues: { ":pk": "USER#user123", ":prefix": "ORDER#" },
+}));
+```
+
+### When to Use DynamoDB vs MongoDB
+
+| | DynamoDB | MongoDB |
+|---|---|---|
+| **Scale** | Unlimited, fully managed | Self-managed scaling |
+| **Schema** | Strict access-pattern design | Flexible, ad-hoc queries |
+| **Query flexibility** | Limited to defined indexes | Rich query language |
+| **Transactions** | Multi-item transactions (same/cross-table) | Multi-document ACID |
+| **Cost model** | Per request or provisioned capacity | Compute + storage |
+| **Best for** | Known access patterns at massive scale | Flexible schemas, complex queries |
+
+Use DynamoDB when you know your access patterns, need serverless scaling, or are already on AWS. Use MongoDB when access patterns are exploratory or frequently change.
+
+## Cassandra Basics
+
+Apache Cassandra is a wide-column store optimized for write-heavy, time-series, and IoT workloads across many nodes.
+
+- **Write path**: Appends to an in-memory Memtable + commit log, flushed to SSTable on disk
+- **No joins, no ACID** across partitions — denormalize data per query
+- **Tunable consistency**: `ONE`, `QUORUM`, `ALL` per operation
+- **Best for**: event logs, IoT sensor data, time-series metrics, write-heavy workloads at global scale
+
+```sql
+-- Cassandra CQL (similar to SQL syntax)
+CREATE TABLE sensor_readings (
+  device_id UUID,
+  recorded_at TIMESTAMP,
+  temperature FLOAT,
+  PRIMARY KEY (device_id, recorded_at)  -- device_id = partition key
+) WITH CLUSTERING ORDER BY (recorded_at DESC);
+
+-- Insert
+INSERT INTO sensor_readings (device_id, recorded_at, temperature)
+VALUES (uuid(), toTimestamp(now()), 23.5);
+
+-- Query (partition key must be in WHERE)
+SELECT * FROM sensor_readings
+WHERE device_id = 550e8400-e29b-41d4-a716-446655440000
+AND recorded_at > '2024-01-01';
+```
+
+**Choose Cassandra over MongoDB when:** write throughput is extreme (100k+ writes/sec), data is naturally time-series, or you need multi-datacenter active-active replication.
+
 ## When to Use NoSQL (MongoDB)
 
 - **Content management systems and catalogs** - Flexible schema for varying product attributes
@@ -646,7 +735,7 @@ db.collection.find().readPref("secondary")
 
 ## When NOT to Use NoSQL
 
-- **Complex multi-table transactions required** (use [[sql-databases]])
+- **Complex multi-table transactions required** (use [[sql]])
 - **Data has well-defined, stable schema with complex relationships**
 - **ACID compliance is non-negotiable** (financial systems)
 - **Ad-hoc reporting across multiple entity types**
@@ -655,9 +744,9 @@ db.collection.find().readPref("secondary")
 
 ## Related Topics
 
-- [[Database Architecture]] — managed vs self-hosted, read replicas, backup strategies
-- [[sql-databases]] — Relational alternative with ACID guarantees
-- [[sql-vs-nosql-databases]] — Comparison and decision framework
+- [[architecture]] — managed vs self-hosted, read replicas, backup strategies
+- [[sql]] — Relational alternative with ACID guarantees
+- [[sql-vs-nosql]] — Comparison and decision framework
 - [[Elasticsearch]] — Full-text search engine, often used alongside MongoDB
 - [[CAP Theorem]] — Consistency vs Availability tradeoff in distributed systems
 - [[Sharding]] — Horizontal scaling technique used by MongoDB

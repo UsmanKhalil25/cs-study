@@ -19,7 +19,7 @@ date: 2026-06-17
 updated: 2026-06-17
 ---
 
-# JavaScript (Interview Prep)
+# JavaScript
 
 ## Overview
 
@@ -427,21 +427,62 @@ console.log(shallow.roles === original.roles);
 
 **Answer:** Promises do not provide universal cancellation. Use `AbortController` for APIs that support it, ignore stale results with request IDs, or use a library that models cancellation at the operation layer.
 
+## WeakMap & WeakSet
+
+`WeakMap` and `WeakSet` hold **weak references** — they don't prevent garbage collection of their keys/values. Useful for associating metadata with objects without memory leaks.
+
+```javascript
+// WeakMap: associate private data with DOM nodes
+const metadata = new WeakMap();
+
+function trackClick(element) {
+  if (!metadata.has(element)) {
+    metadata.set(element, { clicks: 0, firstSeen: Date.now() });
+  }
+  metadata.get(element).clicks++;
+}
+
+document.querySelectorAll("button").forEach((btn) => {
+  btn.addEventListener("click", () => trackClick(btn));
+});
+// When a button is removed from the DOM, its WeakMap entry is GC'd automatically.
+
+// WeakSet: track visited objects without preventing GC
+const visited = new WeakSet();
+
+function process(obj) {
+  if (visited.has(obj)) return; // already processed
+  visited.add(obj);
+  // ... do work
+}
+```
+
+**Key differences from Map/Set:**
+| | WeakMap | Map |
+|---|---|---|
+| Key types | Objects only | Any |
+| Prevents GC | No (weak reference) | Yes (strong reference) |
+| Iterable | No | Yes |
+| `.size` property | No | Yes |
+| Use case | Private metadata, caches tied to object lifetime | General key-value storage |
+
+**Common pattern:** caching computed results tied to an object's lifetime — when the object is GC'd, the cached result is automatically freed too.
+
 ## When to Use
 
 - Preparing for frontend, full-stack, Node.js, React, or Next.js interviews.
 - Reviewing language behavior that affects bugs in production applications.
 - Debugging async ordering, closure state, `this`, or mutation issues.
-- Building a foundation before [[ts-interview|TS Interview]], [[React Interview]], and [[Next.js Interview Questions]].
+- Building a foundation before [[typescript]], [[react]], and [[nextjs]].
 
 ## Related Topics
 
-- [[ts-interview|TS Interview]] - TypeScript adds static analysis on top of JavaScript.
-- [[React Interview]] - React relies heavily on closures, modules, async rendering, and immutable updates.
-- [[Next.js Interview Questions]] - Next.js uses JavaScript runtime behavior across server, client, and edge environments.
-- [[Frontend Testing]] - Tests often expose async, module, and DOM timing issues.
+- [[typescript]] - TypeScript adds static analysis on top of JavaScript.
+- [[react]] - React relies heavily on closures, modules, async rendering, and immutable updates.
+- [[nextjs]] - Next.js uses JavaScript runtime behavior across server, client, and edge environments.
+- [[overview]] - Tests often expose async, module, and DOM timing issues.
 - [[WebSockets]] - Real-time browser APIs use JavaScript event and callback patterns.
-- [[Server-Sent Events]] - Browser streaming API built on JavaScript event handlers.
+- [[sse]] - Browser streaming API built on JavaScript event handlers.
 
 ## External Links
 

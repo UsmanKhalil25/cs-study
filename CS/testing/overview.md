@@ -11,7 +11,7 @@ tags:
   - e2e
   - ci-cd
 prerequisites:
-  - "[[js-interview|JavaScript]]"
+  - "[[javascript]]"
   - "[[Web Development]]"
 date: 2026-04-29
 updated: 2026-06-17
@@ -506,6 +506,67 @@ jobs:
 - Trace files for failed tests (`trace: 'on-first-retry'`)
 - Screenshots on failure (`screenshot: 'only-on-failure'`)
 
+## Visual Regression Testing
+
+Visual regression testing captures screenshots and compares them pixel-by-pixel against a baseline to catch unintended UI changes.
+
+### Playwright Screenshot Comparison
+
+```typescript
+// tests/visual/button.spec.ts
+import { test, expect } from "@playwright/test";
+
+test("primary button visual regression", async ({ page }) => {
+  await page.goto("/components/button");
+
+  // toHaveScreenshot() compares against a stored baseline in __screenshots__/
+  await expect(page.getByRole("button", { name: "Submit" })).toHaveScreenshot("primary-button.png");
+});
+
+test("full page layout", async ({ page }) => {
+  await page.goto("/dashboard");
+  await page.waitForLoadState("networkidle");
+
+  // Mask dynamic content (timestamps, avatars) to prevent false positives
+  await expect(page).toHaveScreenshot("dashboard.png", {
+    mask: [page.locator('[data-testid="timestamp"]'), page.locator(".user-avatar")],
+    maxDiffPixels: 100, // allow minor rendering differences
+  });
+});
+```
+
+### Baseline Workflow
+
+```bash
+# 1. Generate initial baselines (run once, commit the PNG files)
+npx playwright test --update-snapshots
+
+# 2. On each CI run, screenshots are compared against committed baselines
+npx playwright test
+
+# 3. If intentional change, update baselines and commit
+npx playwright test --update-snapshots
+```
+
+**playwright.config.ts for visual tests:**
+```typescript
+export default defineConfig({
+  snapshotPathTemplate: "__screenshots__/{testFilePath}/{arg}{ext}",
+  expect: {
+    toHaveScreenshot: {
+      threshold: 0.2,     // % of pixels that can differ (0–1)
+      animations: "disabled", // freeze CSS animations for stable captures
+    },
+  },
+});
+```
+
+**Best practices:**
+- Commit baseline PNGs to git — diffs are visible in PR review
+- Run visual tests in a fixed browser/OS environment (use Docker in CI to avoid platform differences)
+- Mask dynamic data (dates, random IDs, network images) with `mask: [locator]`
+- Only run visual tests on `main` merge or nightly, not every PR (they're slow)
+
 ## Key Details
 
 > [!warning] Common Mistake: Testing Implementation Details
@@ -529,9 +590,9 @@ jobs:
 
 ## Related Topics
 
-- [[Playwright Patterns]] — Page Object Model, fixtures, authentication, CI config
-- [[React Interview]] — React component testing with Testing Library
-- [[js-interview|JavaScript]] — language fundamentals for testing
+- [[playwright]] — Page Object Model, fixtures, authentication, CI config
+- [[react]] — React component testing with Testing Library
+- [[javascript]] — language fundamentals for testing
 - [[Web Development]] — frontend architecture and component patterns
 
 ## External Links

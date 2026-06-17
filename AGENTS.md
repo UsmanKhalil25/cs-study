@@ -6,7 +6,14 @@ Personal computer science knowledge vault with Obsidian integration, AI-powered 
 
 ```
 /
-├── CS/                        # CS study notes (kebab-case filenames)
+├── CS/                        # CS study notes — organized by category
+│   ├── cloud/                 # AWS, compute, VPC, cost, infrastructure
+│   ├── databases/             # SQL, NoSQL, Redis, architecture, comparisons
+│   ├── architecture/          # Microservices, auth providers, system design
+│   ├── apis/                  # GraphQL, WebSockets, SSE
+│   ├── frontend/              # React, Next.js
+│   ├── languages/             # JavaScript, TypeScript
+│   └── testing/               # Overview, Playwright, Vitest/Jest
 ├── .opencode/
 │   ├── agents/               # Subagent definitions
 │   │   ├── topic-researcher.md
@@ -51,7 +58,7 @@ Helps study CS topics through:
 
 ## Note Folder
 
-All CS notes go in the `CS/` folder. Use the note template from the `cs-study` skill.
+CS notes go in `CS/<category>/` sub-folders with short kebab-case names (e.g., `CS/databases/sql.md`, `CS/cloud/vpc.md`). Use the note template from the `cs-study` skill.
 
 ## Quick Usage
 

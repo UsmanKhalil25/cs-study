@@ -1216,6 +1216,132 @@ app.listen(4000, () => {
 > [!danger] Never trust claims without signature verification
 > An attacker can forge a JWT with any payload. The cryptographic signature is the only proof of authenticity. Always verify using the provider's public keys.
 
+## Protocol Comparison: OAuth2 vs OIDC vs SAML
+
+| | OAuth 2.0 | OIDC | SAML 2.0 |
+|---|---|---|---|
+| **Purpose** | Authorization (access delegation) | Authentication (identity) | Authentication (enterprise SSO) |
+| **Token format** | Opaque or JWT | JWT (ID token) | XML assertions |
+| **Transport** | HTTP/JSON | HTTP/JSON | HTTP/XML |
+| **Era** | 2012 | 2014 | 2005 |
+| **Use case** | Third-party API access | Social login, consumer apps | Enterprise SSO, B2B, LDAP-connected |
+| **IdP examples** | GitHub, Google | Google, Microsoft, Auth0 | Okta, Azure AD, OneLogin |
+
+**When to use SAML:** Your customers are enterprises that manage employees via Active Directory or Okta. They need SSO so employees log in once (IdP) and get access to your app (SP) without creating a separate account.
+
+### SAML Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant SP as Service Provider<br/>(Your App)
+    participant IdP as Identity Provider<br/>(Okta / Azure AD)
+
+    User->>SP: Access protected resource
+    SP->>User: Redirect to IdP with SAMLRequest
+    User->>IdP: Authenticate (username + password + MFA)
+    IdP->>User: SAML Response (signed XML assertion)
+    User->>SP: POST SAML Response to ACS URL
+    SP->>SP: Verify signature, extract attributes
+    SP->>User: Create session, grant access
+```
+
+### SAML Implementation (Node.js with `samlify`)
+
+```typescript
+import * as samlify from "samlify";
+import * as validator from "@authenio/samlify-node-xmllint";
+
+samlify.setSchemaValidator(validator);
+
+const sp = samlify.ServiceProvider({
+  entityID: "https://yourapp.com/saml/metadata",
+  assertionConsumerService: [{ Binding: samlify.Constants.BindingNamespace.Post, Location: "https://yourapp.com/saml/acs" }],
+  privateKey: process.env.SAML_SP_PRIVATE_KEY,
+});
+
+const idp = samlify.IdentityProvider({
+  metadata: process.env.SAML_IDP_METADATA_XML, // downloaded from Okta/Azure
+});
+
+// Generate SSO redirect URL
+app.get("/saml/login", async (req, res) => {
+  const { context } = await sp.createLoginRequest(idp, "redirect");
+  res.redirect(context);
+});
+
+// Handle SAML response from IdP
+app.post("/saml/acs", async (req, res) => {
+  const { extract } = await sp.parseLoginResponse(idp, "post", req);
+  const email = extract.attributes.email as string;
+  const session = await createUserSession(email);
+  res.cookie("session", session.token, { httpOnly: true, secure: true });
+  res.redirect("/dashboard");
+});
+```
+
+## Session Management Patterns
+
+After authenticating via any provider (Firebase, OAuth, SAML), you must manage the user's ongoing session.
+
+### Session Token Strategies
+
+| Pattern | How It Works | Pros | Cons |
+|---|---|---|---|
+| **Opaque session cookie** | Random token stored in DB/Redis, cookie sent with each request | Easy to revoke, no token size limits | DB lookup per request |
+| **JWT (stateless)** | Self-contained signed token, no server storage | No DB lookup, scales easily | Can't revoke until expiry |
+| **JWT + refresh token** | Short-lived JWT (15min) + long-lived refresh token (7d) | Balance: revocable, low-DB-lookup | Two tokens to manage |
+
+### Sliding Expiry with Refresh Tokens
+
+```typescript
+// On every API request — extend session if it's within the refresh window
+app.use(async (req, res, next) => {
+  const token = req.cookies.accessToken;
+  if (!token) return next();
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET) as JwtPayload;
+    req.user = payload;
+
+    // Slide the expiry: if token expires in < 5 minutes, issue a new one
+    const expiresAt = payload.exp! * 1000;
+    const minsRemaining = (expiresAt - Date.now()) / 60_000;
+    if (minsRemaining < 5) {
+      const newToken = jwt.sign({ userId: payload.userId }, process.env.JWT_SECRET, {
+        expiresIn: "15m",
+      });
+      res.cookie("accessToken", newToken, { httpOnly: true, secure: true, sameSite: "strict" });
+    }
+  } catch {
+    res.clearCookie("accessToken");
+  }
+  next();
+});
+
+// Refresh token endpoint (called when access token expires)
+app.post("/auth/refresh", async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  const stored = await db.refreshTokens.findUnique({ where: { token: refreshToken } });
+
+  if (!stored || stored.expiresAt < new Date()) {
+    return res.status(401).json({ error: "Refresh token expired" });
+  }
+
+  // Rotate refresh token (prevents replay attacks)
+  await db.refreshTokens.delete({ where: { token: refreshToken } });
+  const newRefresh = crypto.randomBytes(32).toString("hex");
+  await db.refreshTokens.create({
+    data: { token: newRefresh, userId: stored.userId, expiresAt: addDays(new Date(), 7) },
+  });
+
+  const accessToken = jwt.sign({ userId: stored.userId }, process.env.JWT_SECRET, { expiresIn: "15m" });
+  res.cookie("accessToken", accessToken, { httpOnly: true, secure: true, sameSite: "strict" });
+  res.cookie("refreshToken", newRefresh, { httpOnly: true, secure: true, sameSite: "strict" });
+  res.json({ ok: true });
+});
+```
+
 ## When to Use
 
 - **Firebase Auth** — When you want a managed auth solution with multiple providers, auto token refresh, and easy client SDK integration
@@ -1244,4 +1370,4 @@ app.listen(4000, () => {
 - [jwks-rsa Library](https://github.com/auth0/node-jwks-rsa)
 
 
-- [[Microservices Architecture]] — JWT propagation, OAuth 2.0/OIDC, and service-to-service auth patterns
+- [[microservices]] — JWT propagation, OAuth 2.0/OIDC, and service-to-service auth patterns
