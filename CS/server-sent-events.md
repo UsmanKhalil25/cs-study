@@ -10,9 +10,9 @@ tags:
   - web
 prerequisites:
   - "[[HTTP]]"
-  - "[[JavaScript]]"
+  - "[[js-interview|JavaScript]]"
 date: 2026-04-29
-updated: 2026-06-14
+updated: 2026-06-17
 ---
 
 # Server-Sent Events (SSE)

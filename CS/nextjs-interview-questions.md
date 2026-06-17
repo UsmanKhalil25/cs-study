@@ -11,10 +11,10 @@ tags:
   - javascript
 prerequisites:
   - "[[React Interview]]"
-  - "[[JavaScript]]"
+  - "[[js-interview|JavaScript]]"
   - "[[web-basics]]"
 date: 2026-04-29
-updated: 2026-06-14
+updated: 2026-06-17
 ---
 
 # Next.js Interview Questions
@@ -595,7 +595,7 @@ export default function Page() {
 ## Related Topics
 
 - [[React Interview]] — Next.js is built on React; Server Components extend React's component model
-- [[JavaScript]] — Foundation for understanding Next.js runtime and Edge API
+- [[js-interview|JavaScript]] — Foundation for understanding Next.js runtime and Edge API
 - [[web-basics]] — HTTP, caching, and rendering fundamentals that Next.js builds upon
 - [[graphql]] — Alternative data fetching pattern usable with Next.js API routes
 - [[microservices-architecture]] — Next.js can serve as a BFF (Backend-for-Frontend) layer

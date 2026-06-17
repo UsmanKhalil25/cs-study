@@ -9,9 +9,9 @@ tags:
   - jest
   - javascript
 prerequisites:
-  - "[[JavaScript]]"
+  - "[[js-interview|JavaScript]]"
 date: 2026-04-29
-updated: 2026-06-14
+updated: 2026-06-17
 ---
 
 # Testing with Vitest and Jest
@@ -969,7 +969,7 @@ export default defineConfig({
 
 ## Related Topics
 
-- [[JavaScript]] -- Language being tested
+- [[js-interview|JavaScript]] -- Language being tested
 - [[HTTP]] -- API testing relies on HTTP protocol knowledge
 - [[websockets]] -- Real-time features that need specialized testing approaches
 

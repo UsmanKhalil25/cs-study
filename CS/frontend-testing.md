@@ -11,10 +11,10 @@ tags:
   - e2e
   - ci-cd
 prerequisites:
-  - "[[JavaScript]]"
+  - "[[js-interview|JavaScript]]"
   - "[[Web Development]]"
 date: 2026-04-29
-updated: 2026-06-14
+updated: 2026-06-17
 ---
 
 # Frontend Testing
@@ -531,7 +531,7 @@ jobs:
 
 - [[Playwright Patterns]] — Page Object Model, fixtures, authentication, CI config
 - [[React Interview]] — React component testing with Testing Library
-- [[JavaScript]] — language fundamentals for testing
+- [[js-interview|JavaScript]] — language fundamentals for testing
 - [[Web Development]] — frontend architecture and component patterns
 
 ## External Links
