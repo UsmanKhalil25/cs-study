@@ -930,10 +930,10 @@ Federation allows splitting a GraphQL schema across multiple services, each owni
 
 ```mermaid
 flowchart LR
-    Client --> Router[Apollo Router\nunified schema]
-    Router --> US[Users Subgraph\nUser type]
-    Router --> OS[Orders Subgraph\nOrder type]
-    Router --> PS[Products Subgraph\nProduct type]
+    Client --> Router["Apollo Router<br>unified schema"]
+    Router --> US["Users Subgraph<br>User type"]
+    Router --> OS["Orders Subgraph<br>Order type"]
+    Router --> PS["Products Subgraph<br>Product type"]
     OS -.->|extends User| US
     PS -.->|extends Order| OS
 ```

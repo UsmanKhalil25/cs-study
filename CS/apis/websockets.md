@@ -32,8 +32,8 @@ WebSockets start with an HTTP **upgrade handshake**. The client sends a special 
 sequenceDiagram
     participant Client
     participant Server
-    Client->>Server: GET /ws HTTP/1.1\nUpgrade: websocket\nConnection: Upgrade\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\nSec-WebSocket-Version: 13
-    Server-->>Client: HTTP/1.1 101 Switching Protocols\nUpgrade: websocket\nConnection: Upgrade\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+    Client->>Server: GET /ws HTTP/1.1 Upgrade: websocket
+    Server-->>Client: HTTP/1.1 101 Switching Protocols Upgrade: websocket
     Note over Client,Server: Connection upgraded! Full-duplex communication begins
     Client->>Server: [WebSocket Frame] Hello server!
     Server->>Client: [WebSocket Frame] Hello client!
@@ -442,12 +442,12 @@ A single WebSocket server is a single point of failure and a scaling ceiling. Wh
 
 ```mermaid
 flowchart LR
-    Client1 -->|ws| LB[Load Balancer\nsticky sessions]
+    Client1 -->|ws| LB["Load Balancer<br>sticky sessions"]
     Client2 -->|ws| LB
     Client3 -->|ws| LB
-    LB -->|sticky by cookie| WS1[WS Server 1\n500 connections]
-    LB -->|sticky by cookie| WS2[WS Server 2\n500 connections]
-    WS1 <-->|SUBSCRIBE/PUBLISH| Redis[(Redis\nPub/Sub)]
+    LB -->|sticky by cookie| WS1["WS Server 1<br>500 connections"]
+    LB -->|sticky by cookie| WS2["WS Server 2<br>500 connections"]
+    WS1 <-->|SUBSCRIBE/PUBLISH| Redis[("Redis<br>Pub/Sub")]
     WS2 <-->|SUBSCRIBE/PUBLISH| Redis
 ```
 

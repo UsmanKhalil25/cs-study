@@ -269,10 +269,10 @@ The event loop has one call stack, one microtask queue, and one or more macrotas
 ```mermaid
 flowchart TD
     Start([Run script]) --> Stack[Call Stack]
-    Stack -->|stack empty| MQ{Microtask Queue\nempty?}
+    Stack -->|stack empty| MQ{"Microtask Queue<br>empty?"}
     MQ -->|No| Micro[Run next microtask]
     Micro --> MQ
-    MQ -->|Yes| TQ{Task Queue\nempty?}
+    MQ -->|Yes| TQ{"Task Queue<br>empty?"}
     TQ -->|No| Task[Run next task]
     Task --> Stack
     TQ -->|Yes| Wait([Wait for tasks])
@@ -414,10 +414,10 @@ process.on("unhandledRejection", (reason, promise) => {
 
 ```mermaid
 flowchart LR
-    A[Module System] --> B[CommonJS\nNode.js legacy]
-    A --> C[ES Modules\nModern standard]
-    B --> D["require() — runtime\nsynchronous\nmutable exports"]
-    C --> E["import — static\nasynchronous\nlive bindings"]
+    A[Module System] --> B["CommonJS<br>Node.js legacy"]
+    A --> C["ES Modules<br>Modern standard"]
+    B --> D["require() — runtime<br>synchronous<br>mutable exports"]
+    C --> E["import — static<br>asynchronous<br>live bindings"]
 ```
 
 ### CommonJS (CJS)
@@ -488,10 +488,10 @@ JavaScript is **single-threaded** per agent — only one piece of JS runs at a t
 
 ```mermaid
 flowchart TD
-    A[JavaScript Model] --> B[Concurrency\nasync/await, Promises\nInterleaved execution\non one thread]
-    A --> C[Parallelism\nWeb Workers\nWorker Threads\nTrue parallel execution\non OS threads]
-    B --> D[I/O bound tasks\nfetch, fs, DB queries]
-    C --> E[CPU bound tasks\nimage processing\ncryptography\nlarge datasets]
+    A[JavaScript Model] --> B["Concurrency<br>async/await, Promises<br>Interleaved execution<br>on one thread"]
+    A --> C["Parallelism<br>Web Workers / Worker Threads<br>True parallel execution<br>on OS threads"]
+    B --> D["I/O bound tasks<br>fetch, fs, DB queries"]
+    C --> E["CPU bound tasks<br>image processing<br>cryptography / large datasets"]
 ```
 
 ### Async Concurrency (I/O Bound)

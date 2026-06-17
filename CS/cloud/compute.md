@@ -530,12 +530,12 @@ AWS Fargate is serverless for containers — you define container specs and pay 
 
 ```mermaid
 flowchart LR
-    A["Stage 1: MVP\n< 100 users"] --> B["Stage 2: Growth\n100–10k users"]
-    B --> C["Stage 3: Scale\n10k–1M users"]
+    A["Stage 1: MVP<br>< 100 users"] --> B["Stage 2: Growth<br>100–10k users"]
+    B --> C["Stage 3: Scale<br>10k–1M users"]
 
-    A1["Serverless\n(Lambda, Vercel, Cloud Run)\nZero infra management\nPay per request"] --> A
-    B1["Containers\n(ECS Fargate, GKE Autopilot)\nPredictable cost\nFull control of runtime"] --> B
-    C1["Containers + Reserved\nReserved capacity for\nbase load + spot for bursts\nMulti-region failover"] --> C
+    A1["Serverless<br>(Lambda, Vercel, Cloud Run)<br>Zero infra management<br>Pay per request"] --> A
+    B1["Containers<br>(ECS Fargate, GKE Autopilot)<br>Predictable cost<br>Full control of runtime"] --> B
+    C1["Containers + Reserved<br>Reserved capacity for<br>base load + spot for bursts<br>Multi-region failover"] --> C
 ```
 
 | Workload | Best Compute | Reason |

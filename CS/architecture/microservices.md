@@ -1505,8 +1505,8 @@ app.use("/v2", v2);
 
 ```mermaid
 flowchart LR
-    LB[Load Balancer] -->|100% traffic| Blue[Blue\nv1.5 running]
-    Green[Green\nv1.6 deploy] -.->|deploy + test| Green
+    LB[Load Balancer] -->|100% traffic| Blue["Blue<br>v1.5 running"]
+    Green["Green<br>v1.6 deploy"] -.->|deploy + test| Green
     LB -->|switch 100% traffic| Green
     Blue -.->|keep alive briefly for rollback| Blue
 ```
@@ -1517,8 +1517,8 @@ Zero-downtime deployment: deploy v1.6 to Green environment, run smoke tests, swi
 
 ```mermaid
 flowchart LR
-    LB[Load Balancer] -->|95%| Stable[Stable\nv1.5]
-    LB -->|5%| Canary[Canary\nv1.6]
+    LB[Load Balancer] -->|95%| Stable["Stable<br>v1.5"]
+    LB -->|5%| Canary["Canary<br>v1.6"]
     Canary -.->|monitor error rate + latency| Metrics
     Metrics -.->|if healthy: increase %| LB
     Metrics -.->|if degraded: rollback| LB

@@ -1404,7 +1404,7 @@ sequenceDiagram
     participant User
     participant Browser
     participant Server
-    participant Authenticator as Authenticator\n(Face ID / Touch ID)
+    participant Authenticator as Authenticator (Face ID / Touch ID)
 
     note over User,Authenticator: Registration
     User->>Server: "Register passkey"

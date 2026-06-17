@@ -534,7 +534,7 @@ ALTER DATABASE mydb SET statement_timeout = '60s';
 
 ```mermaid
 flowchart LR
-    App --> PB[PgBouncer\ntransaction mode]
+    App --> PB["PgBouncer<br>transaction mode"]
     PB -->|writes| Primary[(Primary RDS)]
     PB -->|reads| R1[(Read Replica 1)]
     PB -->|reads| R2[(Read Replica 2)]
